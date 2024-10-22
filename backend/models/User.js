@@ -1,18 +1,22 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
-// User Model
-const userSchema = new mongoose.Schema({
+const UserSchema = new mongoose.Schema({
     fullname: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    phone: { type: String },
+    email: { type: String, unique: true, required: true },
     password: { type: String, required: true },
-    gender: { type: String },
-    accountType: { type: String, enum: ['regular', 'premium', 'vip'], default: 'regular' },
+    account_type: { type: String, enum: ['Basic', 'Premium', 'VIP'], default: 'Basic' },
     created_at: { type: Date, default: Date.now },
-    profile: { type: mongoose.Schema.Types.ObjectId, ref: 'UserProfile' },
-    actionLog: [{ type: mongoose.Schema.Types.ObjectId, ref: 'UserAction' }],
-    idNumber: { type: String },
-    userSubscription: { type: mongoose.Schema.Types.ObjectId, ref: 'UserSubscription' }
-}, { timestamps: true });
+});
 
-module.exports = mongoose.model('User', userSchema);
+UserSchema.pre('save', async function (next)
+{
+    if (!this.isModified('password'))
+    {
+        next();
+    }
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+});
+
+module.exports = mongoose.model('User', UserSchema);
