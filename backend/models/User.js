@@ -7,6 +7,9 @@ const UserSchema = new mongoose.Schema({
     password: { type: String, required: true },
     account_type: { type: String, enum: ['Basic', 'Premium', 'VIP'], default: 'Basic' },
     created_at: { type: Date, default: Date.now },
+    profile: UserProfileSchema,
+    userSubscription: UserSubscriptionSchema,
+    events: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event' }],
 });
 
 UserSchema.pre('save', async function (next)

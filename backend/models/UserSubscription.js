@@ -1,8 +1,10 @@
 const mongoose = require('mongoose');
 
 const userSubscriptionSchema = new mongoose.Schema({
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    planId: { type: mongoose.Schema.Types.ObjectId, ref: 'SubscriptionPlan', required: true },
+    subscriptionPlan: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'SubscriptionPlan',
+    },
     status: { type: String, enum: ['active', 'inactive', 'pending'], default: 'pending' },
     startDate: { type: Date, default: Date.now },
     endDate: { type: Date },
