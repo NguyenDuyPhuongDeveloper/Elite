@@ -11,6 +11,7 @@ const UserSchema = new mongoose.Schema({
     userSubscription: UserSubscriptionSchema,
     events: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event' }],
 });
+UserProfileSchema.index({ location: '2dsphere' });
 
 UserSchema.pre('save', async function (next)
 {

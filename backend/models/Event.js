@@ -12,5 +12,7 @@ const eventSchema = new mongoose.Schema({
     description: { type: String },
     participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 });
+EventSchema.index({ start_time: 1 });
+EventSchema.index({ 'location.coordinates': '2dsphere' });
 
 module.exports = mongoose.model('Event', eventSchema);

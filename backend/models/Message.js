@@ -1,13 +1,25 @@
 const mongoose = require('mongoose');
 
 const MessageSchema = new mongoose.Schema({
-    sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    receiver: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', require: true },
+    receiver: { type: mongoose.Schema.Types.ObjectId, ref: 'User', require: true },
     content: { type: String, required: true },
     message_type: { type: String, enum: ['text', 'image', 'video', 'file'], required: true },
-    attachments: [String], // Đường dẫn tới các tệp đính kèm nếu có
+    attachments: [{
+        url: String,
+        type: String,
+        size: Number,
+        name: String
+    }],
     sent_at: { type: Date, default: Date.now },
-    is_read: { type: Boolean, default: false },
+    delivered_at: Date,
+    read_at: Date,
+    status: {
+        type: String,
+        enum: ['sent', 'delivered', 'read', 'failed'],
+        default: 'sent'
+    }
 });
-
+MessageSchema.index({ sender: 1, receiver: 1 });
+MessageSchema.index({ sent_at: -1 });
 module.exports = mongoose.model('Message', MessageSchema);
