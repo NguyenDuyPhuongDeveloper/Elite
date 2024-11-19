@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 const UserProfileSchema = require('./UserProfile');
 const UserSubscriptionSchema = require('./UserSubscription');
 
@@ -10,9 +11,9 @@ const UserSchema = new mongoose.Schema({
     password: { type: String, required: true, select: false, minlength: 8 },
     phone: { type: String, unique: true, sparse: true },
 
-    firstName: { type: String, required: true, trim: true },
-    lastName: { type: String, required: true, trim: true },
-    dateOfBirth: { type: Date, required: true },
+    firstName: { type: String, trim: true },
+    lastName: { type: String, trim: true },
+    dateOfBirth: { type: Date },
     gender: { type: String, enum: ['Male', 'Female', 'Other'] },
     location: {
         type: {
@@ -31,8 +32,21 @@ const UserSchema = new mongoose.Schema({
     account_type: { type: String, enum: ['Basic', 'Premium', 'VIP'], default: 'Basic' },
     account_status: { type: String, enum: ['Active', 'Inactive', 'Suspended'], default: 'Active' },
 
+    // Verification
     is_verified: { type: Boolean, default: false },
     thirdPartyVerified: { type: Boolean, default: false },
+    verification: {
+        token: { type: String, select: false },
+        expires: { type: Date, select: false },
+    },
+    resetPasswordToken: {
+        type: String,
+        select: false,
+    },
+    resetPasswordExpire: {
+        type: Date,
+        select: false,
+    },
     // Security Settings
     isTwoFactorAuthEnabled: {
         type: Boolean,
@@ -45,5 +59,17 @@ const UserSchema = new mongoose.Schema({
     // userSubscription: { type: mongoose.Schema.Types.ObjectId, ref: 'UserSubscription' },
     // events: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event' }],
 }, { timestamps: true });
+
+UserSchema.pre('save', async function (next)
+{
+    if (!this.isModified('password')) return next(); // Chỉ hash nếu mật khẩu được sửa đổi
+    this.password = await bcrypt.hash(this.password, 10); // Hash mật khẩu với saltRounds = 10
+    next();
+});
+
+UserSchema.methods.comparePassword = async function (password)
+{
+    return bcrypt.compare(password, this.password);
+};
 
 module.exports = mongoose.model('User', UserSchema);

@@ -2,22 +2,7 @@ const mongoose = require('mongoose');
 
 const UserProfileSchema = new mongoose.Schema({
     nationality: String,
-    status: String,
     goals: String,
-    dob: Date,
-    location: {
-        type: {
-            type: String,
-            enum: ['Point'],
-            default: 'Point'
-        },
-        coordinates: {
-            type: [Number],
-            index: '2dsphere'
-        },
-        address: String
-    },
-    gender: { type: String, enum: ['Male', 'Female', 'Other'] },
     preferenceAgeRange: {
         min: { type: Number, min: 18 },
         max: { type: Number, max: 100 }
@@ -35,8 +20,9 @@ const UserProfileSchema = new mongoose.Schema({
         isMain: Boolean,
         uploadedAt: { type: Date, default: Date.now }
     }],
-    is_verified: { type: Boolean, default: false },
     lastActiveAt: { type: Date, default: Date.now },
 }, { _id: false });
 
-module.exports = mongoose.model('UserProfile', userProfileSchema);
+UserProfileSchema.index({ location: '2dsphere' });
+
+module.exports = mongoose.model('UserProfile', UserProfileSchema);
