@@ -1,24 +1,22 @@
 const jwt = require('jsonwebtoken');
+const twilio = require('twilio');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const UserProfile = require('../models/UserProfile')
 const sendEmail = require('../utils/sendEmail');
 const crypto = require('crypto');
 const { validationResult } = require('express-validator');
+const { createAccessToken, createRefreshToken, verifyToken } = require('../utils/jwt');
 
-// Generate JWT Token
-const generateToken = (id) =>
-{
-    return jwt.sign({ id }, process.env.JWT_SECRET, {
-        expiresIn: process.env.JWT_EXPIRE
-    });
-};
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
 
 // Register user
 exports.register = async (req, res) =>
 {
     try
     {
-        // Validate input (nếu dùng express-validator)
+        // Validate input
         const errors = validationResult(req);
         if (!errors.isEmpty())
         {
@@ -34,16 +32,13 @@ exports.register = async (req, res) =>
             return res.status(400).json({ success: false, message: 'Email or username already in use.' });
         }
 
-        // Generate a verification token
-        const verificationToken = crypto.randomBytes(32).toString('hex');
-        const tokenExpires = Date.now() + 5 * 60 * 1000;
+        // Generate a 6-digit OTP
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpires = Date.now() + 10 * 60 * 1000;
 
-        // Create new user
-        const newUser = new User({
-            username,
-            email,
-            password,
-            phone,
+
+        // Create a new user profile
+        const newUserProfile = new UserProfile({
             firstName,
             lastName,
             dateOfBirth,
@@ -54,28 +49,38 @@ exports.register = async (req, res) =>
                 city: location?.city || '',
                 country: location?.country || '',
             },
-            verification: {
-                token: verificationToken,
-                expires: tokenExpires,
-            },
         });
 
-        // Save user
+        await newUserProfile.save();  // Save the profile
+
+        // Create a new user
+        const newUser = new User({
+            username,
+            email,
+            password,
+            phone,
+            verification: {
+                code: otpCode,
+                expires: otpExpires,
+            },
+            profile: newUserProfile._id,  // Link the user to the profile
+        });
+
         await newUser.save();
 
         // Send verification email
-        const verificationLink = `http://localhost:5000/api/v1/auth/verify/${ verificationToken }`;
         await sendEmail({
             email, // Người nhận
             subject: 'Email Verification',
             html: `<p>Hi ${ username },</p>
-                   <p>Please verify your email by clicking the link below:</p>
-                   <a href="${ verificationLink }">${ verificationLink }</a>`,
+                   <p>Your verification OTP is:</p>
+                   <h2>${ otpCode }</h2>
+                   <p>This code will expire in 10 minutes.</p>`,
         });
 
         return res.status(201).json({
             success: true,
-            message: 'User registered successfully. Please check your email to verify your account.',
+            message: 'User registered successfully. Please check your email for the verification OTP.',
         });
     } catch (error)
     {
@@ -83,6 +88,43 @@ exports.register = async (req, res) =>
         return res.status(500).json({
             success: false,
             message: 'Server error. Please try again later.',
+        });
+    }
+};
+// Verify email
+exports.verifyEmail = async (req, res) =>
+{
+    try
+    {
+        const { email, otpCode } = req.body;
+
+        const user = await User.findOne({
+            'verification.code': otpCode,
+            'verification.expires': { $gt: Date.now() }
+        });
+
+        if (!user)
+        {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid or expired OTP'
+            });
+        }
+
+        user.is_verified = true;
+        user.verification = undefined;
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Email verified successfully'
+        });
+    } catch (error)
+    {
+        res.status(500).json({
+            success: false,
+            message: 'Error in email verification',
+            error: error.message
         });
     }
 };
@@ -115,17 +157,20 @@ exports.login = async (req, res) =>
         }
 
         // Generate token
-        const token = generateToken(user._id);
+        const accessToken = createAccessToken(user._id);
+        const refreshToken = createRefreshToken(user._id);
+
+        res.cookie('token', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', // Chỉ gửi qua HTTPS khi ở môi trường production
+            maxAge: 24 * 60 * 60 * 1000,
+            sameSite: 'Strict'
+        });
 
         res.status(200).json({
             success: true,
-            token,
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                account_type: user.account_type
-            }
+            token: accessToken,
+            user,
         });
     } catch (error)
     {
@@ -140,16 +185,48 @@ exports.login = async (req, res) =>
 // Logout user
 exports.logout = (req, res) =>
 {
-    res.cookie('token', '', {
-        httpOnly: true,
-        expires: new Date(0)
-    });
-    res.status(200).json({
-        success: true,
-        message: 'User logged out successfully'
-    });
+    try
+    {
+        // Clear the refresh token cookie
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', // Chỉ áp dụng khi ở môi trường production
+            sameSite: 'Strict'
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Logged out successfully'
+        });
+    } catch (error)
+    {
+        res.status(500).json({
+            success: false,
+            message: 'Error in user logout',
+            error: error.message
+        });
+    }
 };
 
+// Get current user
+exports.getMe = async (req, res) =>
+{
+    try
+    {
+        const user = await User.findById(req.user.id);
+        res.status(200).json({
+            success: true,
+            user
+        });
+    } catch (error)
+    {
+        res.status(500).json({
+            success: false,
+            message: 'Error in getting user details',
+            error: error.message
+        });
+    }
+};
 // Forgot password
 exports.forgotPassword = async (req, res) =>
 {
@@ -197,7 +274,6 @@ exports.forgotPassword = async (req, res) =>
         });
     }
 };
-
 // Reset password
 exports.resetPassword = async (req, res) =>
 {
@@ -258,61 +334,75 @@ exports.resetPassword = async (req, res) =>
         });
     }
 };
-
-// Verify email
-exports.verifyEmail = async (req, res) =>
+exports.sendPasswordResetOTP = async (req, res) =>
 {
     try
     {
-        const { token } = req.params;
+        const { phone } = req.body;
 
+        // Kiểm tra số điện thoại có tồn tại trong hệ thống không
+        const user = await User.findOne({ phone });
+        if (!user)
+        {
+            return res.status(404).json({ success: false, message: 'User with this phone number not found' });
+        }
+
+        // Tạo mã OTP
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpires = Date.now() + 10 * 60 * 1000; // OTP hết hạn sau 10 phút
+
+        // Cập nhật OTP và thời gian hết hạn vào cơ sở dữ liệu
+        user.otpCode = otpCode;
+        user.otpExpires = otpExpires;
+        await user.save();
+
+        // Gửi OTP qua SMS
+        await client.messages.create({
+            body: `Your password reset OTP is: ${ otpCode }. It will expire in 10 minutes.`,
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: phone,
+        });
+
+        res.status(200).json({ success: true, message: 'OTP sent successfully' });
+    } catch (error)
+    {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Error sending OTP', error: error.message });
+    }
+};
+
+exports.verifyOTPAndResetPassword = async (req, res) =>
+{
+    try
+    {
+        const { phone, otpCode, newPassword } = req.body;
+
+        // Tìm người dùng dựa trên số điện thoại và mã OTP
         const user = await User.findOne({
-            'verification.token': token,
-            'verification.expires': { $gt: Date.now() }
+            phone,
+            otpCode,
+            otpExpires: { $gt: Date.now() }, // OTP phải còn hiệu lực
         });
 
         if (!user)
         {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid or expired verification token'
-            });
+            return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
         }
 
-        user.is_verified = true;
-        user.verification = undefined;
+        // Cập nhật mật khẩu mới
+        user.password = newPassword;
+        user.otpCode = undefined; // Xóa OTP sau khi sử dụng
+        user.otpExpires = undefined;
         await user.save();
 
-        res.status(200).json({
-            success: true,
-            message: 'Email verified successfully'
-        });
+        res.status(200).json({ success: true, message: 'Password reset successfully' });
     } catch (error)
     {
-        res.status(500).json({
-            success: false,
-            message: 'Error in email verification',
-            error: error.message
-        });
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Error resetting password', error: error.message });
     }
 };
 
-// Get current user
-exports.getMe = async (req, res) =>
-{
-    try
-    {
-        const user = await User.findById(req.user.id);
-        res.status(200).json({
-            success: true,
-            user
-        });
-    } catch (error)
-    {
-        res.status(500).json({
-            success: false,
-            message: 'Error in getting user details',
-            error: error.message
-        });
-    }
-};
+
+
+

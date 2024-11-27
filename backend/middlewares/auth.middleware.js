@@ -5,6 +5,7 @@ const protect = async (req, res, next) =>
 {
     try
     {
+        //access token
         let token;
 
         // Check token in headers (e.g., Authorization: Bearer <token>)
@@ -22,7 +23,6 @@ const protect = async (req, res, next) =>
         {
             token = req.query.token;
         }
-
         // If token is not provided, return error
         if (!token)
         {
@@ -32,8 +32,8 @@ const protect = async (req, res, next) =>
             });
         }
 
-        // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // Verify access token
+        const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
         const user = await User.findById(decoded.id).select('-password');
 
         // Check if user exists

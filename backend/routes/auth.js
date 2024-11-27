@@ -3,10 +3,12 @@ const {
     register,
     login,
     verifyEmail,
-    logout,            // Add logout
-    forgotPassword,    // Add forgotPassword
-    resetPassword,     // Add resetPassword
+    logout,
+    forgotPassword,
+    resetPassword,
     getMe,
+    sendPasswordResetOTP,
+    verifyOTPAndResetPassword
 } = require('../controllers/authController');
 const router = express.Router();
 
@@ -19,7 +21,9 @@ router.post('/login', validateLogin, login);
 router.get('/logout', protect, logout); // Logout requires authentication
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:resetToken', resetPassword);
-router.get('/verify/:token', verifyEmail);
+router.post('/send-password-reset-otp', sendPasswordResetOTP);
+router.post('/verify-otp-reset-password', verifyOTPAndResetPassword);
+router.get('/verify-email/', verifyEmail);
 router.get('/me', protect, getMe);
 
 module.exports = router;

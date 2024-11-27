@@ -3,6 +3,9 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/user');
+
 const app = express();
 
 // Middleware
@@ -13,8 +16,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes will be added here
-app.use('/api/v1/auth', require('./routes/auth'));
-app.use('/api/v1/users', require('./routes/user'));
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/users', userRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) =>
