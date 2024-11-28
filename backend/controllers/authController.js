@@ -159,6 +159,7 @@ exports.login = async (req, res) =>
         // Generate token
         const accessToken = createAccessToken(user._id);
         const refreshToken = createRefreshToken(user._id);
+        console.log(refreshToken);
 
         res.cookie('token', refreshToken, {
             httpOnly: true,
@@ -402,6 +403,58 @@ exports.verifyOTPAndResetPassword = async (req, res) =>
         res.status(500).json({ success: false, message: 'Error resetting password', error: error.message });
     }
 };
+exports.refreshToken = async (req, res) =>
+{
+
+    try
+    {
+        // Lấy Refresh Token từ cookie
+        const refreshToken = req.cookies.token;
+        if (!refreshToken)
+        {
+            return res.status(401).json({
+                success: false,
+                message: 'No refresh token provided',
+            });
+        }
+
+        // Xác minh Refresh Token
+        const decoded = verifyToken(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+        if (!decoded)
+        {
+            return res.status(403).json({
+                success: false,
+                message: 'Invalid or expired refresh token',
+            });
+        }
+
+        // Tìm người dùng từ token
+        const user = await User.findById(decoded.id);
+        if (!user)
+        {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found',
+            });
+        }
+
+        // Tạo Access Token mới
+        const newAccessToken = createAccessToken(user._id);
+
+        res.status(200).json({
+            success: true,
+            token: newAccessToken, // Trả Access Token mới cho frontend
+        });
+    } catch (error)
+    {
+        res.status(500).json({
+            success: false,
+            message: 'Error refreshing token',
+            error: error.message,
+        });
+    }
+};
+
 
 
 
