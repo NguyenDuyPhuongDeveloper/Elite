@@ -19,7 +19,7 @@ const { protect } = require('../middlewares/auth.middleware');
 
 router.post('/register', validateRegistration, register);
 router.post('/login', validateLogin, login);
-router.get('/logout', protect, logout); // Logout requires authentication
+router.post('/logout', protect, logout); // Logout requires authentication
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:resetToken', resetPassword);
 router.post('/send-password-reset-otp', sendPasswordResetOTP);

@@ -19,7 +19,7 @@ app.use(cookieParser());
 
 // Routes will be added here
 app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/user', userRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) =>

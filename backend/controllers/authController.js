@@ -159,7 +159,6 @@ exports.login = async (req, res) =>
         // Generate token
         const accessToken = createAccessToken(user._id);
         const refreshToken = createRefreshToken(user._id);
-        console.log(refreshToken);
 
         res.cookie('token', refreshToken, {
             httpOnly: true,
@@ -303,8 +302,6 @@ exports.resetPassword = async (req, res) =>
             resetPasswordToken: hashedResetToken,
             resetPasswordExpire: { $gt: Date.now() }
         });
-        console.log(user);
-
         if (!user)
         {
             return res.status(400).json({

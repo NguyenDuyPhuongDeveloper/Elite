@@ -1,92 +1,195 @@
 const User = require('../models/User');
+const UserProfile = require('../models/UserProfile');
 
-exports.getUserProfile = async (req, res) =>
+// Get current user's information
+exports.getCurrentUser = async (req, res) =>
 {
     try
     {
-        const user = await User.findById(req.user.id).select('-password'); // Không lấy trường password
+        const user = await User.findById(req.user.id).populate('profile');
         if (!user)
         {
-            return res.status(404).json({ msg: 'User not found' });
+            return res.status(404).json({
+                success: false,
+                message: 'User not found.',
+            });
         }
-        res.json(user);
-    } catch (err)
+        res.status(200).json({
+            success: true,
+            data: user,
+        });
+    } catch (error)
     {
-        console.error(err.message);
-        res.status(500).send('Server error');
+        res.status(500).json({
+            success: false,
+            message: 'Error retrieving user information.',
+            error: error.message,
+        });
     }
 };
+
+// Update current user's information
+exports.updateUser = async (req, res) =>
+{
+    try
+    {
+        const updates = req.body;
+        const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true });
+        if (!user)
+        {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found.',
+            });
+        }
+        res.status(200).json({
+            success: true,
+            data: user,
+        });
+    } catch (error)
+    {
+        res.status(500).json({
+            success: false,
+            message: 'Error updating user information.',
+            error: error.message,
+        });
+    }
+};
+
+// Get all users (Admin only)
+exports.getAllUsers = async (req, res) =>
+{
+    try
+    {
+        const users = await User.find().populate('profile');
+        res.status(200).json({
+            success: true,
+            data: users,
+        });
+    } catch (error)
+    {
+        res.status(500).json({
+            success: false,
+            message: 'Error retrieving users list.',
+            error: error.message,
+        });
+    }
+};
+
+// Get user details by ID
+exports.getUserById = async (req, res) =>
+{
+    try
+    {
+        const { userId } = req.params;
+
+        // Check access permissions
+        if (req.user.account_type !== 'Admin' && req.user.id !== userId)
+        {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied to view this user information.',
+            });
+        }
+
+        const user = await User.findById(userId).populate('profile');
+        if (!user)
+        {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found.',
+            });
+        }
+        res.status(200).json({
+            success: true,
+            data: user,
+        });
+    } catch (error)
+    {
+        res.status(500).json({
+            success: false,
+            message: 'Error retrieving user details.',
+            error: error.message,
+        });
+    }
+};
+
+// Delete a user (Admin only)
+exports.deleteUser = async (req, res) =>
+{
+    try
+    {
+        const { userId } = req.params;
+
+        // Only Admin has permission to delete
+        if (req.user.account_type !== 'Admin')
+        {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied to delete user.',
+            });
+        }
+
+        const user = await User.findByIdAndDelete(userId);
+        if (!user)
+        {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found.',
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'User successfully deleted.',
+        });
+    } catch (error)
+    {
+        res.status(500).json({
+            success: false,
+            message: 'Error deleting user.',
+            error: error.message,
+        });
+    }
+};
+
+// Update current user's profile
 exports.updateUserProfile = async (req, res) =>
 {
-    const { fullname, phone, account_type } = req.body;
-
-    const profileFields = {};
-    if (fullname) profileFields.fullname = fullname;
-    if (phone) profileFields.phone = phone;
-    if (account_type) profileFields.account_type = account_type;
-
     try
     {
-        let user = await User.findById(req.user.id);
-        if (!user)
-        {
-            return res.status(404).json({ msg: 'User not found' });
-        }
+        const updates = req.body;
 
-        user = await User.findByIdAndUpdate(
-            req.user.id,
-            { $set: profileFields },
-            { new: true }
-        );
-
-        res.json(user);
-    } catch (err)
-    {
-        console.error(err.message);
-        res.status(500).send('Server error');
-    }
-};
-exports.searchUsers = async (req, res) =>
-{
-    const { fullname, gender, account_type } = req.query;
-
-    try
-    {
-        const query = {};
-        if (fullname) query.fullname = { $regex: fullname, $options: 'i' };
-        if (gender) query.gender = gender;
-        if (account_type) query.account_type = account_type;
-
-        const users = await User.find(query).select('-password');
-        res.json(users);
-    } catch (err)
-    {
-        console.error(err.message);
-        res.status(500).send('Server error');
-    }
-};
-exports.getMatches = async (req, res) =>
-{
-    try
-    {
+        // Find the current user
         const user = await User.findById(req.user.id);
         if (!user)
         {
-            return res.status(404).json({ msg: 'User not found' });
+            return res.status(404).json({
+                success: false,
+                message: 'User not found.',
+            });
         }
 
-        const matches = await User.find({
-            _id: { $ne: req.user.id }, // Không lấy chính mình
-            hobbies: { $in: user.profile.hobbies },
-        }).select('-password');
+        // Update profile
+        const profile = await UserProfile.findByIdAndUpdate(user.profile, updates, { new: true });
+        if (!profile)
+        {
+            return res.status(404).json({
+                success: false,
+                message: 'Profile not found.',
+            });
+        }
 
-        res.json(matches);
-    } catch (err)
+        res.status(200).json({
+            success: true,
+            data: profile,
+        });
+    } catch (error)
     {
-        console.error(err.message);
-        res.status(500).send('Server error');
+        res.status(500).json({
+            success: false,
+            message: 'Error updating profile.',
+            error: error.message,
+        });
     }
 };
-
-
-
