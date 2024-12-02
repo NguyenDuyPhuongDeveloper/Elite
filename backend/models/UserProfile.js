@@ -44,7 +44,6 @@ const UserProfileSchema = new mongoose.Schema(
         photos: [
             {
                 url: { type: String, required: true },
-                isMain: { type: Boolean, default: false }, // Main profile picture
                 uploadedAt: { type: Date, default: Date.now },
             },
         ],

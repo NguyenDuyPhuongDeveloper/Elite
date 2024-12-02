@@ -7,6 +7,7 @@ exports.getCurrentUser = async (req, res) =>
     try
     {
         const user = await User.findById(req.user.id).populate('profile');
+        console.log("user info from backend", user);
         if (!user)
         {
             return res.status(404).json({

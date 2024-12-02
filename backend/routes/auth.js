@@ -7,8 +7,9 @@ const {
     forgotPassword,
     resetPassword,
     getMe,
-    sendPasswordResetOTP,
-    verifyOTPAndResetPassword,
+    resetPasswordByPhone,
+    sendOTP,
+    verifyPhone,
     refreshToken
 } = require('../controllers/authController');
 const router = express.Router();
@@ -22,8 +23,9 @@ router.post('/login', validateLogin, login);
 router.post('/logout', protect, logout); // Logout requires authentication
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:resetToken', resetPassword);
-router.post('/send-password-reset-otp', sendPasswordResetOTP);
-router.post('/verify-otp-reset-password', verifyOTPAndResetPassword);
+router.post('/send-password-reset-otp', resetPasswordByPhone);
+router.post('/send-otp', sendOTP);
+router.post('/verify-phone', verifyPhone);
 router.get('/verify-email/', verifyEmail);
 router.get('/me', protect, getMe);
 router.post('/refresh-token', refreshToken);

@@ -7,6 +7,7 @@ const sendEmail = require('../utils/sendEmail');
 const crypto = require('crypto');
 const { validationResult } = require('express-validator');
 const { createAccessToken, createRefreshToken, verifyToken } = require('../utils/jwt');
+const { verifyOTP } = require('../utils/phoneOTP');
 
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
@@ -332,74 +333,126 @@ exports.resetPassword = async (req, res) =>
         });
     }
 };
-exports.sendPasswordResetOTP = async (req, res) =>
-{
-    try
-    {
-        const { phone } = req.body;
-
-        // Kiểm tra số điện thoại có tồn tại trong hệ thống không
-        const user = await User.findOne({ phone });
-        if (!user)
-        {
-            return res.status(404).json({ success: false, message: 'User with this phone number not found' });
-        }
-
-        // Tạo mã OTP
-        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const otpExpires = Date.now() + 10 * 60 * 1000; // OTP hết hạn sau 10 phút
-
-        // Cập nhật OTP và thời gian hết hạn vào cơ sở dữ liệu
-        user.otpCode = otpCode;
-        user.otpExpires = otpExpires;
-        await user.save();
-
-        // Gửi OTP qua SMS
-        await client.messages.create({
-            body: `Your password reset OTP is: ${ otpCode }. It will expire in 10 minutes.`,
-            from: process.env.TWILIO_PHONE_NUMBER,
-            to: phone,
-        });
-
-        res.status(200).json({ success: true, message: 'OTP sent successfully' });
-    } catch (error)
-    {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'Error sending OTP', error: error.message });
-    }
-};
-
-exports.verifyOTPAndResetPassword = async (req, res) =>
+exports.resetPasswordByPhone = async (req, res) =>
 {
     try
     {
         const { phone, otpCode, newPassword } = req.body;
 
-        // Tìm người dùng dựa trên số điện thoại và mã OTP
-        const user = await User.findOne({
-            phone,
-            otpCode,
-            otpExpires: { $gt: Date.now() }, // OTP phải còn hiệu lực
-        });
-
-        if (!user)
+        if (!newPassword || newPassword.length < 8)
         {
-            return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+            return res.status(400).json({
+                success: false,
+                message: 'Password must be at least 8 characters long.'
+            });
         }
 
-        // Cập nhật mật khẩu mới
+        // Kiểm tra OTP
+        const user = await verifyOTP(phone, otpCode);
+
+        // Mã hóa mật khẩu mới
         user.password = newPassword;
-        user.otpCode = undefined; // Xóa OTP sau khi sử dụng
-        user.otpExpires = undefined;
         await user.save();
 
-        res.status(200).json({ success: true, message: 'Password reset successfully' });
+        res.status(200).json({
+            success: true,
+            message: 'Password reset successfully',
+        });
     } catch (error)
     {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'Error resetting password', error: error.message });
+        res.status(400).json({
+            success: false,
+            message: error.message || 'Error resetting password',
+        });
     }
 };
+exports.verifyPhone = async (req, res) =>
+{
+    try
+    {
+        const { phone, otpCode } = req.body;
+
+        // Kiểm tra OTP
+        const user = await verifyOTP(phone, otpCode);
+
+        // Đánh dấu số điện thoại đã được xác minh
+        user.is_phone_verified = true;
+        user.verification = undefined; // Xóa thông tin OTP
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Phone number verified successfully',
+        });
+    } catch (error)
+    {
+        res.status(400).json({
+            success: false,
+            message: error.message || 'Error verifying phone number',
+        });
+    }
+};
+exports.sendOTP = async (req, res) =>
+{
+    try
+    {
+        const { phone } = req.body;
+
+        // Tìm người dùng
+        const user = await User.findOne({ phone });
+        if (!user)
+        {
+            return res.status(200).json({
+                success: true,
+                message: 'If the phone number exists, OTP has been sent successfully1.',
+            });
+        }
+
+        // Kiểm tra giới hạn gửi OTP (chống spam)
+        if (user.verification && user.verification.expires > Date.now() - 60 * 1000)
+        {
+            return res.status(429).json({
+                success: false,
+                message: 'Please wait before requesting another OTP.'
+            });
+        }
+
+        // Tạo mã OTP
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const hashedOTP = crypto.createHmac('sha256', process.env.SECRET_KEY)
+            .update(otpCode)
+            .digest('hex');
+        const otpExpires = Date.now() + 10 * 60 * 1000; // 10 phút
+
+        // Lưu OTP vào trường verification
+        user.verification = {
+            code: hashedOTP,
+            expires: otpExpires,
+            failedAttempts: 0, // Reset lại số lần nhập sai
+        };
+        await user.save();
+
+        // Gửi OTP qua Twilio
+        await client.messages.create({
+            body: `Your OTP code is: ${ otpCode }. It will expire in 10 minutes.`,
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: phone,
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'If the phone number exists, OTP has been sent successfully.',
+        });
+    } catch (error)
+    {
+        res.status(500).json({
+            success: false,
+            message: 'Error sending OTP',
+            error: error.message,
+        });
+    }
+};
+
 exports.refreshToken = async (req, res) =>
 {
 

@@ -8,6 +8,10 @@ const UserSchema = new mongoose.Schema(
         email: { type: String, unique: true, required: true, lowercase: true },
         password: { type: String, required: true, select: false, minlength: 8 },
         phone: { type: String, unique: true, sparse: true },
+        avatar: {
+            type: String, // URL của ảnh đại diện
+            default: "https://via.placeholder.com/150", // Avatar mặc định
+        },
 
         // Account State
         account_type: { type: String, enum: ['Basic', 'Premium', 'VIP'], default: 'Basic' },
@@ -17,11 +21,10 @@ const UserSchema = new mongoose.Schema(
         is_verified: { type: Boolean, default: false }, // Email verification
         verification: {
             code: { type: String },
-            expires: { type: Date }
+            expires: { type: Date },
+            failedAttempts: { type: Number, default: 0 },
         },
         is_phone_verified: { type: Boolean, default: false }, // Phone verification
-        otpCode: { type: String, select: false },
-        otpExpires: { type: Date },
         //refreshToken: { type: String },
         thirdPartyVerified: { type: Boolean, default: false }, // External verification status
 

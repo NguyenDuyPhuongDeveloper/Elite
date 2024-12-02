@@ -1,0 +1,18 @@
+@url_dev=http://localhost:5000/v1/api
+
+GET http://localhost:5000
+
+
+###register
+
+# POST http://localhost:5000/v1/api/auth/register
+# Content-Type: application/json
+
+# {
+  # "fullname": "Nguyễn Duy Nam",
+  # "email": "phuongnd1@gmail.com",
+  # "password": "12345678"
+# }
+
+
+POST http://localhost:5000/v1/api/auth/register

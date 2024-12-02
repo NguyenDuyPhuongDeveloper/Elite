@@ -5,10 +5,22 @@ const UserProfileSchema = new mongoose.Schema({
     status: String,
     goals: String,
     dob: Date,
-    location: String,
+    location: {
+        type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point'
+        },
+        coordinates: {
+            type: [Number],
+            index: '2dsphere'
+        },
+        address: String
+    },
+    gender: { type: String, enum: ['Male', 'Female', 'Other'] },
     preferenceAgeRange: {
-        min: Number,
-        max: Number,
+        min: { type: Number, min: 18 },
+        max: { type: Number, max: 100 }
     },
     occupation: String,
     workLocation: String,
@@ -18,7 +30,13 @@ const UserProfileSchema = new mongoose.Schema({
     hobbies: [String],
     smoking: { type: String, enum: ['Do not smoke', 'Regularly', 'Occasionally'] },
     drinking: { type: String, enum: ['Do not drink', 'Frequently', 'Socially'] },
-    is_verified: Boolean,
+    photos: [{
+        url: String,
+        isMain: Boolean,
+        uploadedAt: { type: Date, default: Date.now }
+    }],
+    is_verified: { type: Boolean, default: false },
+    lastActiveAt: { type: Date, default: Date.now },
 }, { _id: false });
 
 // UserSubscription Schema
