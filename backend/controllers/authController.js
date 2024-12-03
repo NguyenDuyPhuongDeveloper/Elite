@@ -33,9 +33,12 @@ exports.register = async (req, res) =>
             return res.status(400).json({ success: false, message: 'Email or username already in use.' });
         }
 
-        // Generate a 6-digit OTP
+        // Tạo mã OTP
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const otpExpires = Date.now() + 10 * 60 * 1000;
+        const hashedOTP = crypto.createHmac('sha256', process.env.SECRET_KEY)
+            .update(otpCode)
+            .digest('hex');
+        const otpExpires = Date.now() + 10 * 60 * 1000; // 10 phút
 
 
         // Create a new user profile
@@ -61,8 +64,9 @@ exports.register = async (req, res) =>
             password,
             phone,
             verification: {
-                code: otpCode,
+                code: hashedOTP,
                 expires: otpExpires,
+                failedAttempts: 0,
             },
             profile: newUserProfile._id,  // Link the user to the profile
         });
@@ -98,9 +102,14 @@ exports.verifyEmail = async (req, res) =>
     try
     {
         const { email, otpCode } = req.body;
+        console.log(email, " ", otpCode);
+        const hashedOTP = crypto.createHmac('sha256', process.env.SECRET_KEY)
+            .update(otpCode)
+            .digest('hex');
 
         const user = await User.findOne({
-            'verification.code': otpCode,
+            email,
+            'verification.code': hashedOTP,
             'verification.expires': { $gt: Date.now() }
         });
 
@@ -167,6 +176,8 @@ exports.login = async (req, res) =>
             maxAge: 24 * 60 * 60 * 1000,
             sameSite: 'Strict'
         });
+        const loginTime = new Date();
+        console.log(`[LOGIN] User attempted to login at: ${ loginTime.toLocaleString() }`);
 
         res.status(200).json({
             success: true,
@@ -460,6 +471,7 @@ exports.refreshToken = async (req, res) =>
     {
         // Lấy Refresh Token từ cookie
         const refreshToken = req.cookies.token;
+        console.log("refreshToken:", refreshToken);
         if (!refreshToken)
         {
             return res.status(401).json({
@@ -490,6 +502,8 @@ exports.refreshToken = async (req, res) =>
 
         // Tạo Access Token mới
         const newAccessToken = createAccessToken(user._id);
+        const provideTime = new Date();
+        console.log(`[ProvideNewAccessToken]: ${ loginTime.toLocaleString() }`);
 
         res.status(200).json({
             success: true,
