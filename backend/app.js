@@ -6,12 +6,16 @@ const cookieParser = require('cookie-parser');
 
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
+const corsOptions = {
+    origin: process.env.CLIENT_URL || 'http://localhost:3000', // Địa chỉ frontend
+    credentials: true, // Cho phép gửi cookie
+};
 
 const app = express();
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

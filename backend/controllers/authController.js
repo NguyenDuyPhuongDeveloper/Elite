@@ -7,7 +7,7 @@ const sendEmail = require('../utils/sendEmail');
 const crypto = require('crypto');
 const { validationResult } = require('express-validator');
 const { createAccessToken, createRefreshToken, verifyToken } = require('../utils/jwt');
-const { verifyOTP } = require('../utils/OTP');
+const { verifyOTP, sendOTP } = require('../utils/OTP');
 
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
@@ -116,6 +116,27 @@ exports.verifyEmail = async (req, res) =>
         });
     } catch (error)
     {
+        if (error.message === 'Invalid or expired OTP')
+        {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid or expired OTP. Please try again.'
+            });
+        }
+        if (error.message === 'Too many failed attempts. Please request a new OTP.')
+        {
+            return res.status(429).json({
+                success: false,
+                message: error.message
+            });
+        }
+        if (error.message === 'Invalid identifier type. Must be either "email" or "phone".')
+        {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid identifier type provided.'
+            });
+        }
         res.status(500).json({
             success: false,
             message: 'Error in email verification or wrong OTP Code',
@@ -163,6 +184,8 @@ exports.login = async (req, res) =>
         });
         const loginTime = new Date();
         console.log(`[LOGIN] User attempted to login at: ${ loginTime.toLocaleString() }`);
+        console.log('accesstoken: ', accessToken);
+        console.log('refreshtoken: ', refreshToken);
 
         res.status(200).json({
             success: true,
@@ -524,8 +547,7 @@ exports.refreshToken = async (req, res) =>
 
         // Tạo Access Token mới
         const newAccessToken = createAccessToken(user._id);
-        const provideTime = new Date();
-        console.log(`[ProvideNewAccessToken]: ${ loginTime.toLocaleString() }`);
+        console.log("accesstoken after provided: ", newAccessToken);
 
         res.status(200).json({
             success: true,
