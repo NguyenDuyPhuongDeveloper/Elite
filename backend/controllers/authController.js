@@ -7,7 +7,7 @@ const sendEmail = require('../utils/sendEmail');
 const crypto = require('crypto');
 const { validationResult } = require('express-validator');
 const { createAccessToken, createRefreshToken, verifyToken } = require('../utils/jwt');
-const { verifyOTP } = require('../utils/phoneOTP');
+const { verifyOTP } = require('../utils/OTP');
 
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
@@ -96,30 +96,15 @@ exports.register = async (req, res) =>
         });
     }
 };
+
 // Verify email
 exports.verifyEmail = async (req, res) =>
 {
     try
     {
         const { email, otpCode } = req.body;
-        console.log(email, " ", otpCode);
-        const hashedOTP = crypto.createHmac('sha256', process.env.SECRET_KEY)
-            .update(otpCode)
-            .digest('hex');
 
-        const user = await User.findOne({
-            email,
-            'verification.code': hashedOTP,
-            'verification.expires': { $gt: Date.now() }
-        });
-
-        if (!user)
-        {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid or expired OTP'
-            });
-        }
+        const user = await verifyOTP(email, otpCode, 'email');
 
         user.is_verified = true;
         user.verification = undefined;
@@ -133,7 +118,7 @@ exports.verifyEmail = async (req, res) =>
     {
         res.status(500).json({
             success: false,
-            message: 'Error in email verification',
+            message: 'Error in email verification or wrong OTP Code',
             error: error.message
         });
     }
@@ -384,7 +369,7 @@ exports.verifyPhone = async (req, res) =>
         const { phone, otpCode } = req.body;
 
         // Kiểm tra OTP
-        const user = await verifyOTP(phone, otpCode);
+        const user = await verifyOTP(phone, otpCode, 'phone');
 
         // Đánh dấu số điện thoại đã được xác minh
         user.is_phone_verified = true;
@@ -403,7 +388,7 @@ exports.verifyPhone = async (req, res) =>
         });
     }
 };
-exports.sendOTP = async (req, res) =>
+exports.sendPhoneOTP = async (req, res) =>
 {
     try
     {
@@ -419,36 +404,18 @@ exports.sendOTP = async (req, res) =>
             });
         }
 
-        // Kiểm tra giới hạn gửi OTP (chống spam)
-        if (user.verification && user.verification.expires > Date.now() - 60 * 1000)
+        // Gửi OTP qua phone bằng hàm sendOTP
+        try
         {
+            await sendOTP({ identifier: phone, type: 'phone', user });
+        } catch (error)
+        {
+            // Xử lý lỗi từ hàm sendOTP (ví dụ: chống spam)
             return res.status(429).json({
                 success: false,
-                message: 'Please wait before requesting another OTP.'
+                message: error.message,
             });
         }
-
-        // Tạo mã OTP
-        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const hashedOTP = crypto.createHmac('sha256', process.env.SECRET_KEY)
-            .update(otpCode)
-            .digest('hex');
-        const otpExpires = Date.now() + 10 * 60 * 1000; // 10 phút
-
-        // Lưu OTP vào trường verification
-        user.verification = {
-            code: hashedOTP,
-            expires: otpExpires,
-            failedAttempts: 0, // Reset lại số lần nhập sai
-        };
-        await user.save();
-
-        // Gửi OTP qua Twilio
-        await client.messages.create({
-            body: `Your OTP code is: ${ otpCode }. It will expire in 10 minutes.`,
-            from: process.env.TWILIO_PHONE_NUMBER,
-            to: phone,
-        });
 
         res.status(200).json({
             success: true,
@@ -459,6 +426,61 @@ exports.sendOTP = async (req, res) =>
         res.status(500).json({
             success: false,
             message: 'Error sending OTP',
+            error: error.message,
+        });
+    }
+};
+exports.sendMailOTP = async (req, res) =>
+{
+    try
+    {
+        const { email } = req.body;
+
+        // Kiểm tra email đầu vào
+        if (!email)
+        {
+            return res.status(400).json({
+                success: false,
+                message: 'Email is required.',
+            });
+        }
+
+        // Tìm người dùng dựa trên email
+        const user = await User.findOne({ email });
+
+        // Nếu người dùng không tồn tại, trả về phản hồi an toàn
+        if (!user)
+        {
+            return res.status(200).json({
+                success: true,
+                message: 'If the email exists, OTP has been sent successfully.',
+            });
+        }
+
+        // Gửi OTP qua email bằng hàm sendOTP
+        try
+        {
+            await sendOTP({ identifier: email, type: 'email', user });
+        } catch (error)
+        {
+            // Xử lý lỗi từ hàm sendOTP (ví dụ: chống spam)
+            return res.status(429).json({
+                success: false,
+                message: error.message,
+            });
+        }
+
+        // Phản hồi thành công
+        res.status(200).json({
+            success: true,
+            message: 'If the email exists, OTP has been sent successfully.',
+        });
+    } catch (error)
+    {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error. Please try again later.',
             error: error.message,
         });
     }

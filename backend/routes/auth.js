@@ -8,7 +8,8 @@ const {
     resetPassword,
     getMe,
     resetPasswordByPhone,
-    sendOTP,
+    sendPhoneOTP,
+    sendMailOTP,
     verifyPhone,
     refreshToken
 } = require('../controllers/authController');
@@ -20,11 +21,12 @@ const { protect } = require('../middlewares/auth.middleware');
 
 router.post('/register', validateRegistration, register);
 router.post('/login', validateLogin, login);
-router.post('/logout', protect, logout); // Logout requires authentication
+router.post('/logout', protect, logout);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:resetToken', resetPassword);
 router.post('/send-password-reset-otp', resetPasswordByPhone);
-router.post('/send-otp', sendOTP);
+router.post('/send-otp-phone', sendPhoneOTP);
+router.post('/send-otp-mail', sendMailOTP);
 router.post('/verify-phone', verifyPhone);
 router.post('/verify-email/', verifyEmail);
 router.get('/me', protect, getMe);
