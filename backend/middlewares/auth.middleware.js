@@ -5,46 +5,43 @@ const protect = async (req, res, next) =>
 {
     try
     {
-        //access token
         let token;
 
-        // Check token in headers (e.g., Authorization: Bearer <token>)
+        // Lấy token từ các nguồn khác nhau
         if (req.headers.authorization && req.headers.authorization.startsWith('Bearer'))
         {
             token = req.headers.authorization.split(' ')[1];
-        }
-        // Check token in request body
-        else if (req.body.token)
+        } else if (req.body.token)
         {
             token = req.body.token;
-        }
-        // Check token in query parameters (e.g., ?token=<token>)
-        else if (req.query.token)
+        } else if (req.query.token)
         {
             token = req.query.token;
         }
-        // If token is not provided, return error
+
+        // Nếu không có token, trả lỗi
         if (!token)
         {
             return res.status(401).json({
                 success: false,
-                message: 'Not authorized to access this route'
+                message: 'Not authorized to access this route. Token missing.',
             });
         }
 
-        // Verify access token
+        // Xác thực token
         const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-        const user = await User.findById(decoded.id).select('-password');
 
-        // Check if user exists
+        // Lấy thông tin user từ database
+        const user = await User.findById(decoded.id).select('-password');
         if (!user)
         {
             return res.status(401).json({
                 success: false,
-                message: 'User not found'
+                message: 'User not found',
             });
         }
-        // Check if user is verified
+
+        // Kiểm tra trạng thái xác minh của user
         if (!user.is_verified)
         {
             return res.status(403).json({
@@ -53,13 +50,30 @@ const protect = async (req, res, next) =>
             });
         }
 
+        // Gắn thông tin user vào request object
         req.user = user;
         next();
     } catch (error)
     {
-        return res.status(401).json({
+        // Xử lý lỗi token hết hạn hoặc không hợp lệ
+        if (error.name === 'TokenExpiredError')
+        {
+            return res.status(401).json({
+                success: false,
+                message: 'Token expired. Please login again.',
+            });
+        }
+        if (error.name === 'JsonWebTokenError')
+        {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid token. Please login again.',
+            });
+        }
+
+        return res.status(500).json({
             success: false,
-            message: 'Not authorized to access this route'
+            message: 'Server error in authorization',
         });
     }
 };
