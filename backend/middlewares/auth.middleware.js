@@ -35,9 +35,9 @@ const protect = async (req, res, next) =>
         const user = await User.findById(decoded.id).select('-password');
         if (!user)
         {
-            return res.status(401).json({
+            return res.status(404).json({
                 success: false,
-                message: 'User not found',
+                message: "User not found. Please register or login again.",
             });
         }
 
@@ -56,24 +56,27 @@ const protect = async (req, res, next) =>
     } catch (error)
     {
         // Xử lý lỗi token hết hạn hoặc không hợp lệ
-        if (error.name === 'TokenExpiredError')
+        if (error.name === "TokenExpiredError")
         {
             return res.status(401).json({
                 success: false,
-                message: 'Token expired. Please login again.',
+                errorCode: "TOKEN_EXPIRED",
+                message: "Your session has expired. Please login again.",
             });
         }
-        if (error.name === 'JsonWebTokenError')
+        if (error.name === "JsonWebTokenError")
         {
             return res.status(401).json({
                 success: false,
-                message: 'Invalid token. Please login again.',
+                errorCode: "INVALID_TOKEN",
+                message: "Invalid token. Please login again.",
             });
         }
 
         return res.status(500).json({
             success: false,
-            message: 'Server error in authorization',
+            errorCode: "SERVER_ERROR",
+            message: "An error occurred during authentication. Please try again.",
         });
     }
 };

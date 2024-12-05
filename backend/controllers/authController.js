@@ -273,8 +273,12 @@ exports.forgotPassword = async (req, res) =>
 
         await user.save();
 
-        const resetUrl = `${ req.protocol }://${ req.get('host') }/api/v1/auth/reset-password/${ resetToken }`;
+        const frontendUrl =
+            process.env.NODE_ENV === 'production'
+                ? 'https://your-production-domain.com'
+                : 'http://localhost:3000';
 
+        const resetUrl = `${ frontendUrl }/reset-password/${ resetToken }`;
         await sendEmail({
             email: user.email,
             subject: 'Password Reset',
