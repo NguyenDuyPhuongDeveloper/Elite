@@ -275,7 +275,7 @@ exports.forgotPassword = async (req, res) =>
 
         const frontendUrl =
             process.env.NODE_ENV === 'production'
-                ? 'https://your-production-domain.com'
+                ? process.env.frontendUrl
                 : 'http://localhost:3000';
 
         const resetUrl = `${ frontendUrl }/reset-password/${ resetToken }`;
@@ -563,6 +563,42 @@ exports.refreshToken = async (req, res) =>
             success: false,
             message: 'Error refreshing token',
             error: error.message,
+        });
+    }
+};
+
+exports.googleCallback = async (req, res) =>
+{
+    try
+    {
+        // Người dùng được Passport.js xử lý và thêm vào req.user
+        const user = req.user;
+
+        // Tạo Access Token và Refresh Token
+        const accessToken = createAccessToken(user._id);
+        const refreshToken = createRefreshToken(user._id);
+
+        // Lưu Refresh Token vào cookie
+        res.cookie('token', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+            sameSite: 'Strict',
+        });
+
+        // Chuyển hướng về frontend với Access Token
+        const frontendUrl =
+            process.env.NODE_ENV === 'production'
+                ? process.env.FRONTEND_URL
+                : 'http://localhost:3000';
+
+        res.redirect(`${ frontendUrl }/google-callback/token=${ accessToken }`);
+    } catch (error)
+    {
+        console.error('Google Callback Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error handling Google callback',
         });
     }
 };

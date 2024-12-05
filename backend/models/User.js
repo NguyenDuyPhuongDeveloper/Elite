@@ -6,7 +6,14 @@ const UserSchema = new mongoose.Schema(
         // Account Information
         username: { type: String, required: true, unique: true, trim: true },
         email: { type: String, unique: true, required: true, lowercase: true },
-        password: { type: String, required: true, select: false, minlength: 8 },
+        password: {
+            type: String,
+            required: function ()
+            {
+                return !this.googleId; // Nếu không có Google ID, yêu cầu mật khẩu
+            },
+            select: false, minlength: 8
+        },
         phone: { type: String, unique: true, sparse: true },
         avatar: {
             type: String, // URL của ảnh đại diện
@@ -34,7 +41,11 @@ const UserSchema = new mongoose.Schema(
 
         // Security
         isTwoFactorAuthEnabled: { type: Boolean, default: false },
-        twoFactorAuthSecret: { type: String, select: false },
+        googleId: {
+            type: String,
+            unique: true,
+            sparse: true, // Không yêu cầu nhưng phải duy nhất nếu có
+        },
 
         // Relationships
         profile: { type: mongoose.Schema.Types.ObjectId, ref: 'UserProfile', default: null },

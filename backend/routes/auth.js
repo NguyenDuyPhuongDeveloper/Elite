@@ -11,11 +11,13 @@ const {
     sendPhoneOTP,
     sendMailOTP,
     verifyPhone,
-    refreshToken
+    refreshToken,
+    googleCallback
 } = require('../controllers/authController');
 const router = express.Router();
 
 // Validation middleware
+const passport = require('passport');
 const { validateRegistration, validateLogin } = require('../middlewares/validation.middleware');
 const { protect } = require('../middlewares/auth.middleware');
 
@@ -31,4 +33,12 @@ router.post('/verify-phone', verifyPhone);
 router.post('/verify-email/', verifyEmail);
 router.get('/me', protect, getMe);
 router.post('/refresh-token', refreshToken);
+
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'], accessType: 'offline', }));
+// Google Callback
+router.get(
+    '/google/callback',
+    passport.authenticate('google', { failureRedirect: '/login' }),
+    googleCallback
+);
 module.exports = router;
