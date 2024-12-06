@@ -43,6 +43,11 @@ passport.use(
                         is_verified: true,
                         profile: newUserProfile._id,
                     });
+                } else if (!user.googleId)
+                {
+                    // Nếu tài khoản đã tồn tại (đăng ký bằng email) nhưng chưa liên kết Google
+                    user.googleId = profile.id;
+                    await user.save();
                 }
 
                 return done(null, user);
