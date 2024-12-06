@@ -26,12 +26,25 @@ exports.register = async (req, res) =>
 
         const { username, email, password, phone, firstName, lastName, dateOfBirth, gender, location } = req.body;
 
-        // Check if the email or username already exists
-        const existingUser = await User.findOne({ $or: [{ email }, { username }] });
-        if (existingUser)
+        // Check if the email, phone or username already exists
+        const existingEmail = await User.findOne({ email });
+        if (existingEmail)
         {
-            return res.status(400).json({ success: false, message: 'Email or username already in use.' });
+            return res.status(400).json({ success: false, message: 'Email already in use.' });
         }
+
+        const existingUsername = await User.findOne({ username });
+        if (existingUsername)
+        {
+            return res.status(400).json({ success: false, message: 'Username already in use.' });
+        }
+
+        const existingPhone = await User.findOne({ phone });
+        if (existingPhone)
+        {
+            return res.status(400).json({ success: false, message: 'Phone number already in use.' });
+        }
+
 
         // Tạo mã OTP
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
