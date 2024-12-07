@@ -8,7 +8,7 @@ const UserProfileSchema = new mongoose.Schema(
         dateOfBirth: { type: Date, required: true },
         gender: { type: String, enum: ['Male', 'Female', 'Other'], required: true },
         bio: { type: String, maxlength: 500 },
-        goals: { type: String, enum: ['Conversation and friendship', 'Long-term relationships', 'Creating a family', 'Casual dating', 'Serious relationship'], default: 'Other' },
+        goals: { type: String, enum: ['Conversation and friendship', 'Long-term relationships', 'Creating a family', 'Casual dating', 'Serious relationship', 'Other'], default: 'Other' },
         relationshipStatus: {
             type: String,
             enum: ['Single', 'Divorced', 'Single parent', 'Separated', 'In a relationship', 'Complicated'],

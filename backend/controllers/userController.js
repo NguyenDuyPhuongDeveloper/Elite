@@ -160,6 +160,7 @@ exports.updateUserProfile = async (req, res) =>
     try
     {
         const updates = req.body;
+        console.log(updates);
 
         // Find the current user
         const user = await User.findById(req.user.id);
