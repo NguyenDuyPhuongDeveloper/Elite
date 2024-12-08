@@ -605,7 +605,7 @@ exports.googleCallback = async (req, res) =>
                 ? process.env.FRONTEND_URL
                 : 'http://localhost:3000';
 
-        res.redirect(`${ frontendUrl }/google-callback/token=${ accessToken }`);
+        res.redirect(`${ frontendUrl }/google-callback/${ accessToken }`);
     } catch (error)
     {
         console.error('Google Callback Error:', error);
