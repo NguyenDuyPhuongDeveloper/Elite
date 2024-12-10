@@ -77,7 +77,7 @@ const sendOTP = async ({ identifier, type, user }) =>
     const hashedOTP = crypto.createHmac('sha256', process.env.SECRET_KEY)
         .update(otpCode)
         .digest('hex');
-    const otpExpires = Date.now() + 10 * 60 * 1000; // 10 phút
+    const otpExpires = Date.now() + 1 * 60 * 1000; // 1 phút
 
     // Lưu OTP vào đối tượng người dùng
     user.verification = {
@@ -96,13 +96,13 @@ const sendOTP = async ({ identifier, type, user }) =>
             subject: 'Email Verification OTP',
             html: `<p>Your OTP code is:</p>
                    <h2>${ otpCode }</h2>
-                   <p>This code will expire in 10 minutes.</p>`,
+                   <p>This code will expire in 1 minutes.</p>`,
         });
     } else if (type === 'phone')
     {
         // Gửi qua SMS
         await client.messages.create({
-            body: `Your OTP code is: ${ otpCode }. It will expire in 10 minutes.`,
+            body: `Your OTP code is: ${ otpCode }. It will expire in 1 minutes.`,
             from: process.env.TWILIO_PHONE_NUMBER,
             to: identifier,
         });
