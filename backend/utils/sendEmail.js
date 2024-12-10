@@ -31,8 +31,6 @@ const sendEmail = async (options) =>
 
         // Gửi email
         const info = await transporter.sendMail(mailOptions);
-
-        console.log('Email sent: %s', info.messageId);
         return info;
     } catch (error)
     {

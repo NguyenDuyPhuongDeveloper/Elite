@@ -143,8 +143,6 @@ exports.changePassword = async (req, res) =>
     try
     {
         const { current_password, new_password } = req.body;
-        console.log("current_password ", current_password);
-        console.log("new_password ", new_password);
 
         // Validate inputs
         if (!current_password || !new_password)
