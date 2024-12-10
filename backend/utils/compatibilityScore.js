@@ -1,15 +1,41 @@
-const calculateMatchingScore = (currentProfile, candidateProfile) =>
+const calculateMatchingScore = (currentProfile, candidateProfile, weights = {}) =>
 {
     let score = 0;
     const MAX_SCORE = 100;
 
-    // 1. Điểm sở thích (25 điểm)
+    // Trọng số mặc định
+    const defaultWeights = {
+        hobbies: 5,
+        maxHobbies: 25,
+        location: { within10: 15, within30: 10, within50: 5 },
+        age: { maxDiff3: 15, maxDiff7: 10, maxDiff10: 5 },
+        goals: 15,
+        gender: 10,
+        lifestyle: { smoking: 5, drinking: 5, children: 5 },
+        childrenDesire: 10,
+        education: 3,
+        occupation: 2,
+    };
+
+    // Kết hợp trọng số tùy chỉnh với mặc định
+    const effectiveWeights = {
+        ...defaultWeights,
+        ...weights,
+        location: { ...defaultWeights.location, ...weights.location },
+        age: { ...defaultWeights.age, ...weights.age },
+        lifestyle: { ...defaultWeights.lifestyle, ...weights.lifestyle },
+    };
+
+    // 1. Điểm sở thích
     const commonHobbies = currentProfile.hobbies.filter(hobby =>
         candidateProfile.hobbies.includes(hobby)
     );
-    score += Math.min(commonHobbies.length * 5, 25); // Mỗi sở thích chung tăng 5 điểm, tối đa 25 điểm.
+    score += Math.min(
+        commonHobbies.length * effectiveWeights.hobbies,
+        effectiveWeights.maxHobbies
+    );
 
-    // 2. Điểm vị trí địa lý (15 điểm)
+    // 2. Điểm vị trí địa lý
     if (currentProfile.location && candidateProfile.location)
     {
         const distance = calculateGeographicDistance(
@@ -17,13 +43,12 @@ const calculateMatchingScore = (currentProfile, candidateProfile) =>
             candidateProfile.location.coordinates
         );
 
-        // Điểm cao hơn nếu ở gần, giảm dần theo khoảng cách
-        if (distance <= 10) score += 15; // Trong phạm vi 10km
-        else if (distance <= 30) score += 10; // Trong phạm vi 30km
-        else if (distance <= 50) score += 5; // Trong phạm vi 50km
+        if (distance <= 10) score += effectiveWeights.location.within10;
+        else if (distance <= 30) score += effectiveWeights.location.within30;
+        else if (distance <= 50) score += effectiveWeights.location.within50;
     }
 
-    // 3. Điểm tuổi (15 điểm)
+    // 3. Điểm tuổi
     const currentAge = calculateAge(currentProfile.dateOfBirth);
     const candidateAge = calculateAge(candidateProfile.dateOfBirth);
     const ageDiff = Math.abs(currentAge - candidateAge);
@@ -36,25 +61,28 @@ const calculateMatchingScore = (currentProfile, candidateProfile) =>
 
     if (isWithinAgePreference)
     {
-        if (ageDiff <= 3) score += 15;
-        else if (ageDiff <= 7) score += 10;
-        else if (ageDiff <= 10) score += 5;
+        if (ageDiff <= 3) score += effectiveWeights.age.maxDiff3;
+        else if (ageDiff <= 7) score += effectiveWeights.age.maxDiff7;
+        else if (ageDiff <= 10) score += effectiveWeights.age.maxDiff10;
     }
 
-    // 4. Điểm mục tiêu quan hệ (15 điểm)
-    score += relationshipGoalCompatibility(currentProfile.goals, candidateProfile.goals);
+    // 4. Điểm mục tiêu quan hệ
+    score += relationshipGoalCompatibility(
+        currentProfile.goals,
+        candidateProfile.goals
+    ) * (effectiveWeights.goals / 15);
 
-    // 5. Điểm giới tính và quan tâm (10 điểm)
+    // 5. Điểm giới tính và quan tâm
     if (candidateProfile.gender === currentProfile.interestedIn)
     {
-        score += 10;
+        score += effectiveWeights.gender;
     }
 
-    // 6. Điểm phong cách sống (15 điểm)
+    // 6. Điểm phong cách sống
     const lifestyleFactors = [
-        { factor: 'smoking', weight: 5 },
-        { factor: 'drinking', weight: 5 },
-        { factor: 'children', weight: 5 }
+        { factor: 'smoking', weight: effectiveWeights.lifestyle.smoking },
+        { factor: 'drinking', weight: effectiveWeights.lifestyle.drinking },
+        { factor: 'children', weight: effectiveWeights.lifestyle.children },
     ];
 
     lifestyleFactors.forEach(({ factor, weight }) =>
@@ -65,12 +93,21 @@ const calculateMatchingScore = (currentProfile, candidateProfile) =>
         }
     });
 
-    // 7. Điểm mong muốn về con cái (10 điểm)
-    score += childrenDesireCompatibility(currentProfile.childrenDesire, candidateProfile.childrenDesire);
+    // 7. Điểm mong muốn về con cái
+    score += childrenDesireCompatibility(
+        currentProfile.childrenDesire,
+        candidateProfile.childrenDesire
+    ) * (effectiveWeights.childrenDesire / 10);
 
-    // 8. Điểm học vấn và nghề nghiệp (5 điểm)
-    if (currentProfile.education === candidateProfile.education) score += 3;
-    if (currentProfile.occupation === candidateProfile.occupation) score += 2;
+    // 8. Điểm học vấn và nghề nghiệp
+    if (currentProfile.education === candidateProfile.education)
+    {
+        score += effectiveWeights.education;
+    }
+    if (currentProfile.occupation === candidateProfile.occupation)
+    {
+        score += effectiveWeights.occupation;
+    }
 
     // Đảm bảo điểm không vượt quá 100
     return Math.min(Math.round(score), MAX_SCORE);
@@ -83,11 +120,14 @@ const calculateAge = dob =>
     const birthDate = new Date(dob);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate()))
+    {
+        age--;
+    }
     return age;
 };
 
-// Helper: Tính khoảng cách địa lý (Haversine)
+// Helper: Tính khoảng cách địa lý (Haversine formula)
 const calculateGeographicDistance = (coord1, coord2) =>
 {
     const [lon1, lat1] = coord1;

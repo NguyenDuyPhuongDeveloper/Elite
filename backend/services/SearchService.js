@@ -1,6 +1,6 @@
 const UserProfile = require('../models/UserProfile');
 const User = require('../models/User');
-const calculateCompatibilityScore = require('../utils/compatibilityScore');
+const calculateMatchingScore = require('../utils/compatibilityScore');
 const calculateDistance = require('../utils/calculateDistance');
 
 // Tìm kiếm cơ bản
@@ -46,7 +46,7 @@ exports.performBasicSearch = async (userId, filters) =>
     // Tính điểm tương thích
     return results.map(target => ({
         user: target,
-        compatibilityScore: calculateCompatibilityScore(user, target),
+        compatibilityScore: calculateMatchingScore(user, target),
     })).sort((a, b) => b.compatibilityScore - a.compatibilityScore);
 };
 
@@ -128,11 +128,14 @@ exports.performAdvancedSearch = async (userId, filters = {}) =>
         }
     }
 
-    // Tính điểm tương thích
-    return results.map(target => ({
+    const sortedResults = results.map(target => ({
         user: target,
-        compatibilityScore: calculateCompatibilityScore(user, target),
+        compatibilityScore: calculateMatchingScore(user, target),
     })).sort((a, b) => b.compatibilityScore - a.compatibilityScore);
+
+    sortedResults.shift();
+
+    return sortedResults;
 };
 
 
@@ -140,38 +143,46 @@ exports.performAdvancedSearch = async (userId, filters = {}) =>
 
 
 // Gợi ý hồ sơ
-exports.generateRecommendations = async (userId, limit = 20) =>
+exports.generateRecommendations = async (userId, page = 1, limit = 3) =>
 {
-    const user = await User.findById(userId).populate('profile');
-    const userProfile = user.profile;
+    try
+    {
+        // Lấy thông tin người dùng hiện tại
+        const user = await User.findById(userId).populate('profile');
+        const userProfile = user.profile;
 
-    if (!userProfile) throw new Error('User not found');
+        if (!userProfile) throw new Error('User profile not found');
 
-    // Lấy tất cả các hồ sơ ngoại trừ chính người dùng
-    const query = {
-        _id: { $ne: userId }, // Loại trừ chính người dùng
-    };
+        // Lấy tất cả ứng viên ngoại trừ chính người dùng
+        const candidates = await UserProfile.find({
+            _id: { $ne: userId }, // Loại trừ bản thân
+        });
 
-    const candidates = await UserProfile.find(query);
+        // Tính điểm tương thích cho từng ứng viên
+        const scoredCandidates = candidates.map(candidate => ({
+            user: candidate,
+            compatibilityScore: calculateMatchingScore(userProfile, candidate),
+        }));
 
-    // Tính điểm tương thích
-    const recommendations = candidates.map(target => ({
-        user: target,
-        compatibilityScore: calculateCompatibilityScore(userProfile, target),
-    }));
+        // Sắp xếp theo điểm tương thích giảm dần
+        scoredCandidates.sort((a, b) => b.compatibilityScore - a.compatibilityScore);
+        scoredCandidates.shift();
 
-    // Sắp xếp theo điểm tương thích
-    recommendations.sort((a, b) => b.compatibilityScore - a.compatibilityScore);
+        // Giới hạn kết quả tối đa 5 trang (5 * limit hồ sơ)
+        const maxResults = Math.min(scoredCandidates.length, 5 * limit);
 
-    // Tổng số hồ sơ trùng khớp
-    const totalMatches = recommendations.length;
+        // Phân trang
+        const startIndex = (page - 1) * limit;
+        const endIndex = Math.min(startIndex + limit, maxResults);
+        const paginatedResults = scoredCandidates.slice(startIndex, endIndex);
 
-    // Giới hạn số lượng hồ sơ trả về
-    const limitedResults = recommendations.slice(0, limit);
-
-    return {
-        totalMatches,
-        results: limitedResults,
-    };
+        return {
+            totalMatches: maxResults,
+            results: paginatedResults,
+        };
+    } catch (error)
+    {
+        console.error('Error in generateRecommendations:', error);
+        throw new Error('Failed to generate recommendations');
+    }
 };
-

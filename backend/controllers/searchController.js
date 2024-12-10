@@ -37,10 +37,20 @@ exports.recommendProfiles = async (req, res) =>
     try
     {
         const { userId } = req.query;
-        const recommendations = await searchService.generateRecommendations(userId);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 3;
+
+        if (!userId)
+        {
+            return res.status(400).json({ message: "User ID is required" });
+        }
+
+        const recommendations = await searchService.generateRecommendations(userId, page, limit);
+
         res.json(recommendations);
     } catch (error)
     {
-        res.status(500).json({ error: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Failed to fetch recommendations" });
     }
 };
