@@ -346,6 +346,14 @@ exports.resetPassword = async (req, res) =>
                 message: 'Invalid or expired reset token'
             });
         }
+        // Check if token is already used or expired
+        if (Date.now() > user.resetPasswordExpire)
+        {
+            return res.status(400).json({
+                success: false,
+                message: 'Reset token has expired',
+            });
+        }
 
 
         // Update user password and clear reset token fields

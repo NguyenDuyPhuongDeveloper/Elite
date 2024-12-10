@@ -8,6 +8,8 @@ const session = require('express-session');
 const passport = require('./config/passportConfig')
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
+const matchRoutes = require('./routes/match');
+const searchRoutes = require('./routes/searchRoutes');
 const corsOptions = {
     origin: process.env.CLIENT_URL || 'http://localhost:3000', // Địa chỉ frontend
     credentials: true, // Cho phép gửi cookie
@@ -39,6 +41,8 @@ app.use(passport.session());
 // Routes will be added here
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/user', userRoutes);
+app.use('/api/v1/match', matchRoutes);
+app.use('/api/v1/search', searchRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) =>

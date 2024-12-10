@@ -26,7 +26,7 @@ const UserProfileSchema = new mongoose.Schema(
         professionalStatus: { type: String, enum: ['Unemployed', 'Specialist', 'Entrepreneur', 'Workman', 'Junior manager', 'Freelancer/Self-employed', 'Student'] },
         workLocation: { type: String },
         religion: { type: String },
-        education: { type: String },
+        education: { type: String, enum: ["Some college", "Associate, bachelor's, or master's degree", "Doctoral degree", "Vocational high school degree", "More than one academic degree", "High school degree"] },
         educationAt: [
             {
                 type: String, // Name of the educational institution
@@ -54,6 +54,7 @@ const UserProfileSchema = new mongoose.Schema(
             city: { type: String },
             country: { type: String },
         },
+        locationRadius: { type: Number, default: 50 },//km
 
         // Photos
         photos: [
