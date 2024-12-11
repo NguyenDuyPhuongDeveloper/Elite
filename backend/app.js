@@ -9,7 +9,10 @@ const passport = require('./config/passportConfig')
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const matchRoutes = require('./routes/match');
+const messageRoutes = require('./routes/message');
 const searchRoutes = require('./routes/searchRoutes');
+const notificationRoutes = require('./routes/notification');
+const interactionRoutes = require('./routes/interaction');
 const corsOptions = {
     origin: process.env.CLIENT_URL || 'http://localhost:3000', // Địa chỉ frontend
     credentials: true, // Cho phép gửi cookie
@@ -43,6 +46,9 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/match', matchRoutes);
 app.use('/api/v1/search', searchRoutes);
+app.use('/api/v1/message', messageRoutes);
+app.use('/api/v1/notification', notificationRoutes);
+app.use('/api/v1/interaction', interactionRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) =>

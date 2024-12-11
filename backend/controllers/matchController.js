@@ -1,49 +1,75 @@
-const User = require('../models/User');
-const UserProfile = require('../models/UserProfile');
-const calculateMatchingScore = require('../utils/calculateMatchingScore');
+const Matching = require('../models/Matching');
 
-// GET: Fetch matches for a user
-exports.getMatches = async (req, res) =>
+exports.createMatch = async (req, res) =>
 {
+    const { user1, user2, compatibilityScore } = req.body;
     try
     {
-        const { userId, filters } = req.query;
+        const existingMatch = await Matching.findOne({ user1, user2 });
+        if (existingMatch) return res.status(400).json({ message: 'Match already exists' });
 
-        const user = await User.findById(userId).populate('profile');
-        if (!user || !user.profile)
-        {
-            return res.status(404).json({ message: 'User or profile not found.' });
-        }
+        const newMatch = new Matching({ user1, user2, compatibilityScore });
+        await newMatch.save();
+        res.status(201).json(newMatch);
+    } catch (error)
+    {
+        res.status(500).json({ message: 'Failed to create match', error });
+    }
+};
 
-        const profile = await UserProfile.findById(user.profile);
+exports.getMatchStatus = async (req, res) =>
+{
+    const { userId, targetUserId } = req.params;
+    try
+    {
+        const match = await Matching.findOne({ user1: userId, user2: targetUserId });
+        if (!match) return res.status(404).json({ message: 'Match not found' });
+        res.status(200).json(match);
+    } catch (error)
+    {
+        res.status(500).json({ message: 'Failed to get match status', error });
+    }
+};
 
-        let matchCriteria = {
-            _id: { $ne: userId },
-            gender: profile.interestedIn,
-        };
+exports.acceptMatch = async (req, res) =>
+{
+    const { matchId } = req.params;
+    try
+    {
+        const match = await Matching.findByIdAndUpdate(matchId, { status: 'Matched', matchedAt: new Date() }, { new: true });
+        if (!match) return res.status(404).json({ message: 'Match not found' });
+        res.status(200).json(match);
+    } catch (error)
+    {
+        res.status(500).json({ message: 'Failed to accept match', error });
+    }
+};
 
-        // Parse filters and add to criteria
-        if (filters)
-        {
-            const parsedFilters = JSON.parse(filters);
-            Object.assign(matchCriteria, parsedFilters);
-        }
+exports.rejectMatch = async (req, res) =>
+{
+    const { matchId } = req.params;
+    try
+    {
+        const match = await Matching.findByIdAndUpdate(matchId, { status: 'Rejected' }, { new: true });
+        if (!match) return res.status(404).json({ message: 'Match not found' });
+        res.status(200).json(match);
+    } catch (error)
+    {
+        res.status(500).json({ message: 'Failed to reject match', error });
+    }
+};
 
-        const candidates = await UserProfile.find(matchCriteria)
-            .populate('photos') // Ensure photos are fetched
-            .limit(50);
-
-        const matches = candidates.map((candidate) => ({
-            candidate,
-            score: calculateMatchingScore(profile, candidate),
-        }));
-
-        matches.sort((a, b) => b.score - a.score);
-
+exports.getMatchesForUser = async (req, res) =>
+{
+    const { userId } = req.params;
+    try
+    {
+        const matches = await Matching.find({
+            $or: [{ user1: userId }, { user2: userId }],
+        }).populate('user1 user2');
         res.status(200).json(matches);
     } catch (error)
     {
-        console.error(error);
-        res.status(500).json({ message: 'Error fetching matches' });
+        res.status(500).json({ message: 'Failed to get matches for user', error });
     }
 };

@@ -1,7 +1,7 @@
 const UserProfile = require('../models/UserProfile');
 const User = require('../models/User');
 const calculateMatchingScore = require('../utils/compatibilityScore');
-const calculateDistance = require('../utils/calculateDistance');
+
 
 // Tìm kiếm cơ bản
 exports.performBasicSearch = async (userId, filters) =>

@@ -1,45 +1,72 @@
 const Message = require('../models/Message');
 
+// Send a message
 exports.sendMessage = async (req, res) =>
 {
-    const { receiverId, content, media_url, message_type } = req.body;
+    const { sender, receiver, content, messageType, attachments } = req.body;
 
     try
     {
-        const newMessage = new Message({
-            sender_id: req.user.id,
-            receiver_id: receiverId,
+        const message = new Message({
+            sender,
+            receiver,
             content,
-            media_url,
-            message_type,
+            message_type: messageType,
+            attachments,
         });
+        await message.save();
 
-        await newMessage.save();
-        res.json(newMessage);
-    } catch (err)
+        res.status(201).json({ success: true, data: message });
+    } catch (error)
     {
-        console.error(err.message);
-        res.status(500).send('Server error');
+        res.status(500).json({ success: false, message: 'Failed to send message.', error });
     }
 };
 
-
+// Get messages in a conversation
 exports.getMessages = async (req, res) =>
 {
+    const { conversationId } = req.params;
+
     try
     {
         const messages = await Message.find({
-            $or: [
-                { sender_id: req.user.id, receiver_id: req.params.userId },
-                { sender_id: req.params.userId, receiver_id: req.user.id },
-            ],
-        }).sort({ sent_at: 1 });
+            $or: [{ sender: conversationId }, { receiver: conversationId }],
+        }).sort({ sent_at: -1 });
 
-        res.json(messages);
-    } catch (err)
+        res.status(200).json({ success: true, data: messages });
+    } catch (error)
     {
-        console.error(err.message);
-        res.status(500).send('Server error');
+        res.status(500).json({ success: false, message: 'Failed to get messages.', error });
     }
 };
 
+// Mark a message as read
+exports.markAsRead = async (req, res) =>
+{
+    const { messageId } = req.params;
+
+    try
+    {
+        const message = await Message.findByIdAndUpdate(messageId, { read_at: new Date(), status: 'read' }, { new: true });
+        res.status(200).json({ success: true, data: message });
+    } catch (error)
+    {
+        res.status(500).json({ success: false, message: 'Failed to mark message as read.', error });
+    }
+};
+
+// Delete a message
+exports.deleteMessage = async (req, res) =>
+{
+    const { messageId } = req.params;
+
+    try
+    {
+        await Message.findByIdAndDelete(messageId);
+        res.status(200).json({ success: true, message: 'Message deleted successfully.' });
+    } catch (error)
+    {
+        res.status(500).json({ success: false, message: 'Failed to delete message.', error });
+    }
+};

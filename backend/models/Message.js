@@ -20,6 +20,5 @@ const MessageSchema = new mongoose.Schema({
         default: 'sent'
     }
 });
-MessageSchema.index({ sender: 1, receiver: 1 });
-MessageSchema.index({ sent_at: -1 });
+MessageSchema.index({ sender: 1, receiver: 1, sentAt: -1 });
 module.exports = mongoose.model('Message', MessageSchema);
