@@ -19,8 +19,17 @@ passport.use(
 
                 if (!user)
                 {
+                    // Nếu người dùng chưa tồn tại, tạo người dùng mới
+                    user = await User.create({
+                        googleId: profile.id,
+                        email: profile.emails[0].value,
+                        username: profile.emails[0].value,
+                        avatar: profile.photos[0].value,
+                        is_verified: true,
+                    });
                     // Create a new user profile
                     const newUserProfile = new UserProfile({
+                        userId: user._id,
                         firstName: profile.name?.givenName || 'Unknown',
                         lastName: profile.name?.displayName || 'Unknown',
                         gender: profile.gender || 'Other',
@@ -34,15 +43,11 @@ passport.use(
                     });
 
                     await newUserProfile.save();  // Save the profile
-                    // Nếu người dùng chưa tồn tại, tạo người dùng mới
-                    user = await User.create({
-                        googleId: profile.id,
-                        email: profile.emails[0].value,
-                        username: profile.emails[0].value,
-                        avatar: profile.photos[0].value,
-                        is_verified: true,
-                        profile: newUserProfile._id,
-                    });
+                    user.profile = newUserProfile._id,
+                        await user.save();
+
+
+
                 } else if (!user.googleId)
                 {
                     // Nếu tài khoản đã tồn tại (đăng ký bằng email) nhưng chưa liên kết Google

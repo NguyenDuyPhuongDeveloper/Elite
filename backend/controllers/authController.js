@@ -52,10 +52,25 @@ exports.register = async (req, res) =>
             .update(otpCode)
             .digest('hex');
         const otpExpires = Date.now() + 10 * 60 * 1000; // 10 phút
+        // Create a new user
+        const newUser = new User({
+            username,
+            email,
+            password,
+            phone,
+            verification: {
+                code: hashedOTP,
+                expires: otpExpires,
+                failedAttempts: 0,
+            },
 
+        });
+
+        await newUser.save();
 
         // Create a new user profile
         const newUserProfile = new UserProfile({
+            userId: newUser._id,
             firstName,
             lastName,
             dateOfBirth,
@@ -70,21 +85,10 @@ exports.register = async (req, res) =>
 
         await newUserProfile.save();  // Save the profile
 
-        // Create a new user
-        const newUser = new User({
-            username,
-            email,
-            password,
-            phone,
-            verification: {
-                code: hashedOTP,
-                expires: otpExpires,
-                failedAttempts: 0,
-            },
-            profile: newUserProfile._id,  // Link the user to the profile
-        });
 
-        await newUser.save();
+        newUser.profile = newUserProfile._id,  // Link the user to the profile
+
+            await newUser.save();
 
         // Send verification email
         await sendEmail({
