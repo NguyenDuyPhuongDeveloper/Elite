@@ -74,8 +74,21 @@ exports.createInteraction = async (req, res) =>
                     },
                     { upsert: true, new: true }
                 );
-
-                console.log(`Match created between ${ userFrom } and ${ userTo }:`, match);
+                const notification = new Notification({
+                    recipient: userTo,
+                    sender: userFrom,
+                    type: 'MATCH',
+                    content: `You and ${ userData2.username } matched!`,
+                    relatedEntity: {
+                        entityType: 'Matching',
+                        entityId: match._id,
+                    },
+                });
+                await notification.save();
+                return res.status(200).json({
+                    message: 'Matched successfully!',
+                    match,
+                });
             } else
             {
                 // Only one side likes, create or update Matching with 'Pending' status
@@ -103,7 +116,6 @@ exports.createInteraction = async (req, res) =>
             }
         } else if (type === 'Dislike')
         {
-
             // If interaction is 'Dislike', update or create Matching as 'Rejected'
             await Matching.findOneAndUpdate(
                 {
@@ -123,8 +135,6 @@ exports.createInteraction = async (req, res) =>
             );
             console.log(`Match rejected between ${ userFrom } and ${ userTo }`);
         }
-        console.log(interaction);
-
         res.status(201).json(interaction);
     } catch (error)
     {
