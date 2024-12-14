@@ -1,73 +1,48 @@
 const Notification = require('../models/Notification');
 
-// Create a new notification
-exports.createNotification = async (req, res) =>
+exports.getUserNotifications = async (req, res) =>
 {
-    const { recipient, sender, type, content, relatedEntity, priority, expiresAt } = req.body;
-
     try
     {
-        const notification = new Notification({
-            recipient,
-            sender,
-            type,
-            content,
-            relatedEntity,
-            priority,
-            expiresAt,
-        });
+        const { userId } = req.params;
+        const { read, type, limit = 20, page = 1 } = req.query;
 
-        await notification.save();
-        res.status(201).json({ success: true, data: notification });
-    } catch (error)
-    {
-        console.error('Error creating notification:', error);
-        res.status(500).json({ success: false, message: 'Failed to create notification.', error });
-    }
-};
+        const query = { recipient: userId };
 
-// Get notifications for a user
-exports.getNotifications = async (req, res) =>
-{
-    const { recipientId } = req.params;
-    const { unreadOnly, limit = 20, page = 1 } = req.query;
-
-    try
-    {
-        const query = { recipient: recipientId };
-        if (unreadOnly === 'true')
+        if (read !== undefined)
         {
-            query.read = false;
+            query.read = read === 'true';
+        }
+
+        if (type)
+        {
+            query.type = type;
         }
 
         const notifications = await Notification.find(query)
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
-            .limit(Number(limit));
+            .limit(Number(limit))
+            .populate('sender', 'name profilePicture');
 
         const total = await Notification.countDocuments(query);
 
-        res.status(200).json({
-            success: true,
-            data: notifications,
-            total,
+        res.json({
+            notifications,
             totalPages: Math.ceil(total / limit),
-            currentPage: Number(page),
+            currentPage: page
         });
     } catch (error)
     {
-        console.error('Error fetching notifications:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch notifications.', error });
+        res.status(500).json({ message: 'Error fetching notifications', error: error.message });
     }
 };
 
-// Mark a notification as read
-exports.markAsRead = async (req, res) =>
+exports.markNotificationAsRead = async (req, res) =>
 {
-    const { notificationId } = req.params;
-
     try
     {
+        const { notificationId } = req.params;
         const notification = await Notification.findByIdAndUpdate(
             notificationId,
             { read: true },
@@ -76,55 +51,45 @@ exports.markAsRead = async (req, res) =>
 
         if (!notification)
         {
-            return res.status(404).json({ success: false, message: 'Notification not found.' });
+            return res.status(404).json({ message: 'Notification not found' });
         }
 
-        res.status(200).json({ success: true, data: notification });
+        res.json(notification);
     } catch (error)
     {
-        console.error('Error marking notification as read:', error);
-        res.status(500).json({ success: false, message: 'Failed to mark notification as read.', error });
+        res.status(500).json({ message: 'Error marking notification as read', error: error.message });
     }
 };
 
-// Delete a notification
 exports.deleteNotification = async (req, res) =>
 {
-    const { notificationId } = req.params;
-
     try
     {
+        const { notificationId } = req.params;
         const notification = await Notification.findByIdAndDelete(notificationId);
 
         if (!notification)
         {
-            return res.status(404).json({ success: false, message: 'Notification not found.' });
+            return res.status(404).json({ message: 'Notification not found' });
         }
 
-        res.status(200).json({ success: true, message: 'Notification deleted successfully.' });
+        res.json({ message: 'Notification deleted successfully' });
     } catch (error)
     {
-        console.error('Error deleting notification:', error);
-        res.status(500).json({ success: false, message: 'Failed to delete notification.', error });
+        res.status(500).json({ message: 'Error deleting notification', error: error.message });
     }
 };
 
-// Clear all notifications for a user
 exports.clearAllNotifications = async (req, res) =>
 {
-    const { recipientId } = req.params;
-
     try
     {
-        const result = await Notification.deleteMany({ recipient: recipientId });
+        const { userId } = req.params;
+        await Notification.deleteMany({ recipient: userId });
 
-        res.status(200).json({
-            success: true,
-            message: `${ result.deletedCount } notifications cleared successfully.`,
-        });
+        res.json({ message: 'All notifications cleared successfully' });
     } catch (error)
     {
-        console.error('Error clearing notifications:', error);
-        res.status(500).json({ success: false, message: 'Failed to clear notifications.', error });
+        res.status(500).json({ message: 'Error clearing notifications', error: error.message });
     }
 };

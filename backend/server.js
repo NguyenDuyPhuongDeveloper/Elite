@@ -1,25 +1,30 @@
-// src/server.js
-require('dotenv').config();
-const app = require('./app');
-const connectDB = require('./config/db.js');
+require("dotenv").config();
+const http = require("http");
+const app = require("./app");
+const { initSocketIO } = require("./services/socketService");
+const connectDB = require("./config/db");
 
 const PORT = process.env.PORT || 5000;
 
-// Connect to database
+// Kết nối database
 connectDB();
 
-const server = app.listen(PORT, () =>
+// Tạo server HTTP
+const server = http.createServer(app);
+
+// Tích hợp Socket.IO
+initSocketIO(server);
+
+// Lắng nghe server
+server.listen(PORT, () =>
 {
     console.log(`Server running in ${ process.env.NODE_ENV } mode on port ${ PORT }`);
 });
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err) =>
+// Xử lý lỗi không mong muốn
+process.on("unhandledRejection", (err) =>
 {
-    console.log('UNHANDLED REJECTION! 💥 Shutting down...');
-    console.log(err.name, err.message);
-    server.close(() =>
-    {
-        process.exit(1);
-    });
+    console.log("UNHANDLED REJECTION! Shutting down...");
+    console.error(err);
+    server.close(() => process.exit(1));
 });

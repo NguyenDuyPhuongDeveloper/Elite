@@ -75,10 +75,10 @@ exports.createInteraction = async (req, res) =>
                     { upsert: true, new: true }
                 );
                 const notification = new Notification({
-                    recipient: userTo,
-                    sender: userFrom,
+                    recipient: userFrom,
+                    sender: userTo,
                     type: 'MATCH',
-                    content: `You and ${ userData2.username } matched!`,
+                    content: `You and ${ userData1.username } matched!`,
                     relatedEntity: {
                         entityType: 'Matching',
                         entityId: match._id,
@@ -88,6 +88,7 @@ exports.createInteraction = async (req, res) =>
                 return res.status(200).json({
                     message: 'Matched successfully!',
                     match,
+                    notification
                 });
             } else
             {
@@ -154,14 +155,34 @@ exports.getInteractions = async (req, res) =>
             return res.status(400).json({ message: 'Missing userId' });
         }
 
-        const interactions = await Interaction.find({ userFrom: userId }).populate('userTo', 'firstName lastName avatar');
-        res.status(200).json(interactions);
+        // Lấy danh sách các interactions
+        const interactions = await Interaction.find({ userFrom: userId });
+
+        // Lấy thông tin chi tiết người dùng từ UserProfile
+        const detailedInteractions = await Promise.all(
+            interactions.map(async (interaction) =>
+            {
+                const userToDetails = await User.findById(interaction.userTo).populate('profile');
+                return {
+                    ...interaction.toObject(),
+                    userTo: {
+                        firstName: userToDetails?.profile?.firstName || 'Unknown',
+                        lastName: userToDetails?.profile?.lastName || 'Unknown',
+                        avatar: userToDetails?.avatar || null,
+                        username: userToDetails?.username || null,
+                    },
+                };
+            })
+        );
+
+        res.status(200).json(detailedInteractions);
     } catch (error)
     {
         console.error('Error fetching interactions:', error);
         res.status(500).json({ message: 'Failed to get interactions', error: error.message });
     }
 };
+
 
 exports.getInteractionsBetweenUsers = async (req, res) =>
 {

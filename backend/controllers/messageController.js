@@ -48,11 +48,29 @@ exports.markAsRead = async (req, res) =>
 
     try
     {
-        const message = await Message.findByIdAndUpdate(messageId, { read_at: new Date(), status: 'read' }, { new: true });
-        res.status(200).json({ success: true, data: message });
+        const updatedMessage = await Message.findByIdAndUpdate(
+            messageId,
+            { read_at: new Date(), status: 'read' },
+            { new: true }
+        );
+
+        if (updatedMessage)
+        {
+            // Đồng bộ qua Socket.io
+            io.to(updatedMessage.conversation).emit('messageRead', {
+                messageId: updatedMessage._id,
+                status: 'read',
+                read_at: updatedMessage.read_at,
+            });
+
+            res.status(200).json({ success: true, data: updatedMessage });
+        } else
+        {
+            res.status(404).json({ success: false, message: 'Message not found' });
+        }
     } catch (error)
     {
-        res.status(500).json({ success: false, message: 'Failed to mark message as read.', error });
+        res.status(500).json({ success: false, message: 'Failed to mark message as read', error });
     }
 };
 
@@ -60,10 +78,16 @@ exports.markAsRead = async (req, res) =>
 exports.deleteMessage = async (req, res) =>
 {
     const { messageId } = req.params;
+    const { conversationId } = req.body;
 
     try
     {
+        // Xóa tin nhắn khỏi DB
         await Message.findByIdAndDelete(messageId);
+
+        // Thông báo qua Socket.io
+        io.to(conversationId).emit('messageDeleted', { messageId });
+
         res.status(200).json({ success: true, message: 'Message deleted successfully.' });
     } catch (error)
     {

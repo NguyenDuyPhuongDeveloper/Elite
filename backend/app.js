@@ -13,6 +13,7 @@ const messageRoutes = require('./routes/message');
 const searchRoutes = require('./routes/searchRoutes');
 const notificationRoutes = require('./routes/notification');
 const interactionRoutes = require('./routes/interaction');
+const conversationRoutes = require('./routes/conversation');
 const corsOptions = {
     origin: process.env.CLIENT_URL || 'http://localhost:3000', // Địa chỉ frontend
     credentials: true, // Cho phép gửi cookie
@@ -49,6 +50,7 @@ app.use('/api/v1/search', searchRoutes);
 app.use('/api/v1/message', messageRoutes);
 app.use('/api/v1/notification', notificationRoutes);
 app.use('/api/v1/interaction', interactionRoutes);
+app.use('/api/v1/conversations', conversationRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) =>

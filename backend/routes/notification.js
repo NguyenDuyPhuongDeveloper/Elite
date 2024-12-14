@@ -1,27 +1,18 @@
 const express = require('express');
-const {
-    createNotification,
-    getNotifications,
-    markAsRead,
-    deleteNotification,
-    clearAllNotifications,
-} = require('../controllers/notificationController');
-
 const router = express.Router();
+const notificationController = require('../controllers/notificationController');
 
-// Create a notification
-router.post('/', createNotification);
 
-// Get notifications for a user
-router.get('/:recipientId', getNotifications);
+// Get all notifications for a user
+router.get('/:userId', notificationController.getUserNotifications);
 
 // Mark a notification as read
-router.patch('/:notificationId/read', markAsRead);
+router.patch('/:notificationId/read', notificationController.markNotificationAsRead);
 
-// Delete a notification
-router.delete('/:notificationId', deleteNotification);
+// Delete a specific notification
+router.delete('/:notificationId', notificationController.deleteNotification);
 
 // Clear all notifications for a user
-router.delete('/clear/:recipientId', clearAllNotifications);
+router.delete('/:userId/clear-all', notificationController.clearAllNotifications);
 
 module.exports = router;

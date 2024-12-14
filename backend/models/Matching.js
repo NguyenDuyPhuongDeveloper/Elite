@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 
 const MatchingSchema = new mongoose.Schema({
-    user1: { type: mongoose.Schema.Types.ObjectId, ref: 'UserProfile', required: true }, // Người dùng đầu tiên
-    user2: { type: mongoose.Schema.Types.ObjectId, ref: 'UserProfile', required: true }, // Người dùng thứ hai
+    user1: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Người dùng đầu tiên
+    user2: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Người dùng thứ hai
     compatibilityScore: { type: Number, required: true, default: 0 }, // Điểm tương thích
     status: {
         type: String,

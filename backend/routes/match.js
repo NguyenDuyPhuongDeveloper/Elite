@@ -1,26 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const {
-    createMatch,
-    getMatchStatus,
-    acceptMatch,
-    rejectMatch,
-    getMatchesForUser,
-} = require('../controllers/matchController');
+const matchingController = require('../controllers/matchController');
 
-// Tạo ghép cặp
-router.post('/', createMatch);
 
-// Lấy trạng thái ghép cặp
-router.get('/:userId/:targetUserId', getMatchStatus);
+// Create a new potential match
+router.post('/create', matchingController.createPotentialMatch);
 
-// Chấp nhận ghép cặp
-router.put('/:matchId/accept', acceptMatch);
+// Get matching status between two users
+router.get('/:userId/status/:targetUserId', matchingController.getMatchStatus);
 
-// Từ chối ghép cặp
-router.put('/:matchId/reject', rejectMatch);
+// Get all matches for a user
+router.get('/:userId/matches', matchingController.getUserMatches);
 
-// Lấy danh sách ghép cặp của người dùng
-router.get('/:userId', getMatchesForUser);
+// Accept or reject a match
+router.patch('/:matchId/update', matchingController.updateMatchStatus);
+
+// Get potential matches for a user
+router.get('/:userId/potential-matches', matchingController.getPotentialMatches);
 
 module.exports = router;

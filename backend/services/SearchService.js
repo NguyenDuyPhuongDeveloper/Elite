@@ -42,6 +42,7 @@ exports.performBasicSearch = async (userId, filters) =>
 
     // Tìm kiếm
     const results = await UserProfile.find(query);
+    // results.shift();
 
     // Tính điểm tương thích
     return results.map(target => ({

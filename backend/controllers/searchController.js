@@ -6,6 +6,7 @@ exports.basicSearch = async (req, res) =>
     try
     {
         const { userId } = req.query;
+        console.log(userId);
         const filters = req.query.filters ? JSON.parse(req.query.filters) : {}; // Lấy filters từ frontend
         const results = await searchService.performBasicSearch(userId, filters);
         //consosle.log(results);
