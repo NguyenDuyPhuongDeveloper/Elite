@@ -2,7 +2,9 @@ const Interaction = require('../models/Interaction');
 const Matching = require('../models/Matching');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const Conversation = require('../models/Conversation');
 const calculateMatchingScore = require('../utils/compatibilityScore'); // Assuming compatibility calculation utility exists
+
 
 exports.createInteraction = async (req, res) =>
 {
@@ -78,17 +80,26 @@ exports.createInteraction = async (req, res) =>
                     recipient: userFrom,
                     sender: userTo,
                     type: 'MATCH',
-                    content: `You and ${ userData1.username } matched!`,
+                    content: `You has new matched!`,
                     relatedEntity: {
                         entityType: 'Matching',
                         entityId: match._id,
                     },
+
                 });
                 await notification.save();
+                const senderId = userFrom;
+                const userId = userTo;
+                const conversation = new Conversation({
+                    participants: [senderId, userId]
+                });
+                await conversation.save();
+
                 return res.status(200).json({
                     message: 'Matched successfully!',
                     match,
-                    notification
+                    notification,
+                    conversation
                 });
             } else
             {
@@ -156,13 +167,13 @@ exports.getInteractions = async (req, res) =>
         }
 
         // Lấy danh sách các interactions
-        const interactions = await Interaction.find({ userFrom: userId });
+        const interactions = await Interaction.find({ userTo: userId });
 
         // Lấy thông tin chi tiết người dùng từ UserProfile
         const detailedInteractions = await Promise.all(
             interactions.map(async (interaction) =>
             {
-                const userToDetails = await User.findById(interaction.userTo).populate('profile');
+                const userToDetails = await User.findById(interaction.userFrom).populate('profile');
                 return {
                     ...interaction.toObject(),
                     userTo: {

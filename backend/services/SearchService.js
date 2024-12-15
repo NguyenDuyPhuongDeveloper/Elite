@@ -1,6 +1,8 @@
 const UserProfile = require('../models/UserProfile');
 const User = require('../models/User');
 const calculateMatchingScore = require('../utils/compatibilityScore');
+const Interaction = require('../models/Interaction');
+const Matching = require('../models/Matching');
 
 
 // Tìm kiếm cơ bản
@@ -9,6 +11,25 @@ exports.performBasicSearch = async (userId, filters) =>
     const userData = await User.findById(userId).populate('profile');
     const user = userData.profile;
     if (!user) throw new Error('User not found');
+    // Lấy danh sách người bị "Dislike"
+    const dislikedUserIds = await Interaction.find({
+        userFrom: userId,
+        type: 'Dislike',
+    }).distinct('userTo');
+
+    // Lấy danh sách người đã "Matched"
+    const matchedUserIds = await Matching.find({
+        $or: [
+            { user1: userId },
+            { user2: userId },
+        ],
+        status: 'Matched',
+    }).then(matches => matches.map(match =>
+        match.user1.toString() === userId ? match.user2 : match.user1
+    ));
+
+    // Hợp nhất danh sách loại trừ
+    const excludedUserIds = [...new Set([...dislikedUserIds, ...matchedUserIds, userId])];
 
     // Tính toán khoảng thời gian sinh dựa trên độ tuổi
     const currentYear = new Date().getFullYear();
@@ -21,7 +42,7 @@ exports.performBasicSearch = async (userId, filters) =>
 
     // Xây dựng query tìm kiếm
     const query = {
-        _id: { $ne: userId },
+        userId: { $nin: excludedUserIds },
         dateOfBirth: {
             $gte: new Date(`${ minBirthYear }-01-01`),
             $lte: new Date(`${ maxBirthYear }-12-31`),
@@ -59,7 +80,32 @@ exports.performAdvancedSearch = async (userId, filters = {}) =>
 
     if (!user) throw new Error('User not found');
 
-    // Chỉ lấy location và radius từ hồ sơ người dùng, các giá trị khác từ filters
+    // Tính toán khoảng năm sinh
+    const currentYear = new Date().getFullYear();
+    const minBirthYear = currentYear - (filters.ageRange?.max || 99);
+    const maxBirthYear = currentYear - (filters.ageRange?.min || 18);
+
+    // Lấy danh sách người bị "Dislike"
+    const dislikedUserIds = await Interaction.find({
+        userFrom: userId,
+        type: 'Dislike',
+    }).distinct('userTo');
+
+    // Lấy danh sách người đã "Matched"
+    const matchedUserIds = await Matching.find({
+        $or: [
+            { user1: userId },
+            { user2: userId },
+        ],
+        status: 'Matched',
+    }).then(matches => matches.map(match =>
+        match.user1.toString() === userId ? match.user2 : match.user1
+    ));
+
+    // Hợp nhất danh sách loại trừ
+    const excludedUserIds = [...new Set([...dislikedUserIds, ...matchedUserIds, userId])];
+
+    // Xây dựng bộ lọc từ người dùng và filters
     const effectiveFilters = {
         ageRange: filters.ageRange || { min: 18, max: 99 },
         gender: filters.gender || null,
@@ -67,19 +113,15 @@ exports.performAdvancedSearch = async (userId, filters = {}) =>
         radius: filters.radius || user.locationRadius || 50, // Giá trị mặc định 50km
         goals: filters.goals || null,
         relationshipStatus: filters.relationshipStatus || null,
-        children: filters.children || undefined, // Chỉ thêm nếu không undefined
+        children: filters.children || undefined,
         childrenDesire: filters.childrenDesire || undefined,
         smoking: filters.smoking || undefined,
         drinking: filters.drinking || undefined,
     };
-    // Tính toán khoảng năm sinh
-    const currentYear = new Date().getFullYear();
-    const minBirthYear = currentYear - effectiveFilters.ageRange.max;
-    const maxBirthYear = currentYear - effectiveFilters.ageRange.min;
 
-    // Xây dựng query
+    // Xây dựng truy vấn loại trừ và lọc
     const query = {
-        _id: { $ne: userId }, // Loại trừ bản thân
+        userId: { $nin: excludedUserIds }, // Loại trừ User bị Dislike hoặc đã Matched
         dateOfBirth: {
             $gte: new Date(`${ minBirthYear }-01-01`),
             $lte: new Date(`${ maxBirthYear }-12-31`),
@@ -97,7 +139,6 @@ exports.performAdvancedSearch = async (userId, filters = {}) =>
         ...(effectiveFilters.smoking !== undefined && { smoking: effectiveFilters.smoking }),
         ...(effectiveFilters.drinking !== undefined && { drinking: effectiveFilters.drinking }),
     };
-
 
     // Thực hiện tìm kiếm
     let results = await UserProfile.find(query);
@@ -117,29 +158,25 @@ exports.performAdvancedSearch = async (userId, filters = {}) =>
             },
         };
         results = await UserProfile.find(query);
-
-        // Nếu vẫn không có kết quả, trả về thông báo
-        if (results.length === 0)
-        {
-            console.log("No users found after relaxing filters.");
-            return {
-                message: "Không tìm thấy người dùng phù hợp. Thử mở rộng phạm vi tìm kiếm.",
-                results: [],
-            };
-        }
     }
 
+    if (results.length === 0)
+    {
+        console.log("No users found after relaxing filters.");
+        return {
+            message: "Không tìm thấy người dùng phù hợp. Thử mở rộng phạm vi tìm kiếm.",
+            results: [],
+        };
+    }
+
+    // Tính điểm tương thích
     const sortedResults = results.map(target => ({
         user: target,
         compatibilityScore: calculateMatchingScore(user, target),
     })).sort((a, b) => b.compatibilityScore - a.compatibilityScore);
 
-    sortedResults.shift();
-
     return sortedResults;
 };
-
-
 
 
 
@@ -148,15 +185,31 @@ exports.generateRecommendations = async (userId, page = 1, limit = 3) =>
 {
     try
     {
+
         // Lấy thông tin người dùng hiện tại
         const user = await User.findById(userId).populate('profile');
         const userProfile = user.profile;
 
         if (!userProfile) throw new Error('User profile not found');
+        const dislikedUserIds = await Interaction.find({
+            userFrom: userId,
+            type: 'Dislike',
+        }).distinct('userTo');
 
-        // Lấy tất cả ứng viên ngoại trừ chính người dùng
+        const matchedUserIds = await Matching.find({
+            $or: [
+                { user1: userId },
+                { user2: userId },
+            ],
+            status: 'Matched',
+        }).then(matches => matches.map(match =>
+            match.user1.toString() === userId ? match.user2 : match.user1
+        ));
+
+        const excludedUserIds = [...new Set([...dislikedUserIds, ...matchedUserIds, userId])];
+
         const candidates = await UserProfile.find({
-            _id: { $ne: userId }, // Loại trừ bản thân
+            userId: { $nin: excludedUserIds }, // Loại bỏ User bị Dislike hoặc đã Matched
         });
 
         // Tính điểm tương thích cho từng ứng viên
@@ -167,7 +220,7 @@ exports.generateRecommendations = async (userId, page = 1, limit = 3) =>
 
         // Sắp xếp theo điểm tương thích giảm dần
         scoredCandidates.sort((a, b) => b.compatibilityScore - a.compatibilityScore);
-        scoredCandidates.shift();
+        //scoredCandidates.shift();
 
         // Giới hạn kết quả tối đa 5 trang (5 * limit hồ sơ)
         const maxResults = Math.min(scoredCandidates.length, 5 * limit);

@@ -1,4 +1,5 @@
 let io;
+const Message = require('../models/Message');
 
 const initSocketIO = (server) =>
 {
@@ -107,7 +108,15 @@ const emitMessage = (conversationId, message) =>
     console.log(`Emitting message to room ${ conversationId }:`, messageData);
     io.to(conversationId).emit('receiveMessage', messageData);
 };
+const getIO = () =>
+{
+    if (!io)
+    {
+        throw new Error('Socket.IO is not initialized');
+    }
+    return io;
+};
 
 
 
-module.exports = { initSocketIO, emitMessage };
+module.exports = { initSocketIO, emitMessage, getIO };

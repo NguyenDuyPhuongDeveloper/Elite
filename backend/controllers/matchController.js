@@ -89,7 +89,7 @@ exports.getUserMatches = async (req, res) =>
         const matches = await Matching.find({
             $or: [{ user1: userId }, { user2: userId }],
             status: 'Matched'
-        })
+        }).sort({ matchedAt: -1 })
             .populate('user1', 'username ') // Lấy thông tin từ user1
             .populate('user2', 'username '); // Lấy thông tin từ user2
 

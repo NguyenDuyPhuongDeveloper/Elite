@@ -1,4 +1,5 @@
 const Message = require('../models/Message');
+const { getIO } = require('../services/socketService');
 
 // Send a message
 exports.sendMessage = async (req, res) =>
@@ -45,6 +46,7 @@ exports.getMessages = async (req, res) =>
 exports.markAsRead = async (req, res) =>
 {
     const { messageId } = req.params;
+    console.log("messageID: ", messageId);
 
     try
     {
@@ -56,6 +58,7 @@ exports.markAsRead = async (req, res) =>
 
         if (updatedMessage)
         {
+            const io = getIO();
             // Đồng bộ qua Socket.io
             io.to(updatedMessage.conversation).emit('messageRead', {
                 messageId: updatedMessage._id,
@@ -70,7 +73,16 @@ exports.markAsRead = async (req, res) =>
         }
     } catch (error)
     {
-        res.status(500).json({ success: false, message: 'Failed to mark message as read', error });
+        console.error('Detailed error marking message as read:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
+        res.status(500).json({
+            success: false,
+            message: 'Failed to mark message as read',
+            errorDetails: error
+        });
     }
 };
 
