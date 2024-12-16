@@ -1,5 +1,6 @@
 const Message = require('../models/Message');
 const { getIO } = require('../services/socketService');
+const mongoose = require('mongoose');
 
 // Send a message
 exports.sendMessage = async (req, res) =>
@@ -104,5 +105,28 @@ exports.deleteMessage = async (req, res) =>
     } catch (error)
     {
         res.status(500).json({ success: false, message: 'Failed to delete message.', error });
+    }
+};
+// Count unread messages for a user
+exports.getUnreadMessagesCount = async (req, res) =>
+{
+    const { userId } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId))
+    {
+        return res.status(400).json({ message: 'Invalid user ID' });
+    }
+
+    try
+    {
+        // Count unread messages for the recipient
+        const unreadCount = await Message.countDocuments({ receiver: userId, status: 'sent' });
+
+        res.status(200).json({ unreadCount });
+    } catch (error)
+    {
+        console.error('Error counting unread messages:', error);
+        res.status(500).json({ message: 'Failed to count unread messages', error: error.message });
     }
 };

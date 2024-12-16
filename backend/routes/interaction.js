@@ -4,11 +4,15 @@ const {
     createInteraction,
     getInteractions,
     getInteractionsBetweenUsers,
-    undoLastInteraction
+    undoLastInteraction,
+    getProfileViews
 } = require('../controllers/interactionController');
+
 
 // Tạo tương tác
 router.post('/', createInteraction);
+// Lấy lượt xem hồ sơ
+router.get('/profile-views/:userId', getProfileViews);
 
 // Lấy tất cả tương tác của người dùng
 router.get('/:userId', getInteractions);
@@ -17,5 +21,6 @@ router.get('/:userId', getInteractions);
 router.get('/:userId/:targetUserId', getInteractionsBetweenUsers);
 // Xóa lượt tương tác cuối
 router.delete('/undo/:userId', undoLastInteraction);
+
 
 module.exports = router;

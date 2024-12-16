@@ -247,3 +247,19 @@ exports.undoLastInteraction = async (req, res) =>
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
+
+exports.getProfileViews = async (req, res) =>
+{
+    const { userId } = req.params;
+    console.log(userId);
+
+    try
+    {
+        const profileViews = await Interaction.countDocuments({ userTo: userId, type: 'View' });
+        res.status(200).json({ profileViews });
+    } catch (error)
+    {
+        console.error('Error fetching profile views:', error);
+        res.status(500).json({ message: 'Failed to fetch profile views' });
+    }
+};

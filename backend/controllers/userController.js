@@ -1,7 +1,7 @@
 const User = require('../models/User');
 const UserProfile = require('../models/UserProfile');
 const bcrypt = require('bcryptjs');
-
+const mongoose = require('mongoose');
 // Get current user's information
 exports.getCurrentUser = async (req, res) =>
 {
@@ -190,4 +190,52 @@ exports.changePassword = async (req, res) =>
             error: error.message,
         });
     }
-};    
+};
+exports.getProfileCompleteness = async (req, res) =>
+{
+    const { userId } = req.params;
+
+    // Validate userId
+    if (!mongoose.Types.ObjectId.isValid(userId))
+    {
+        return res.status(400).json({ message: 'Invalid user ID' });
+    }
+
+    try
+    {
+        const profile = await UserProfile.findOne({ userId });
+
+        if (!profile)
+        {
+            return res.status(404).json({ message: 'User profile not found' });
+        }
+
+        // Define fields to check for completeness
+        const fieldsToCheck = [
+            'firstName', 'lastName', 'dateOfBirth', 'gender', 'bio', 'goals', 'relationshipStatus',
+            'preferenceAgeRange.min', 'preferenceAgeRange.max', 'interestedIn', 'occupation',
+            'education', 'location.city', 'location.country', 'photos', 'hobbies'
+        ];
+
+        // Count filled fields
+        let filledFields = 0;
+
+        fieldsToCheck.forEach(field =>
+        {
+            const fieldValue = field.split('.').reduce((obj, key) => obj && obj[key], profile);
+            if (fieldValue && (Array.isArray(fieldValue) ? fieldValue.length > 0 : true))
+            {
+                filledFields++;
+            }
+        });
+
+        // Calculate completeness percentage
+        const completeness = Math.round((filledFields / fieldsToCheck.length) * 100);
+
+        res.status(200).json({ completeness });
+    } catch (error)
+    {
+        console.error('Error calculating profile completeness:', error);
+        res.status(500).json({ message: 'Failed to calculate profile completeness', error: error.message });
+    }
+};
