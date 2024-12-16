@@ -77,10 +77,10 @@ exports.createInteraction = async (req, res) =>
                     { upsert: true, new: true }
                 );
                 const notification = new Notification({
-                    recipient: userFrom,
-                    sender: userTo,
+                    recipient: userTo,
+                    sender: userFrom,
                     type: 'MATCH',
-                    content: `You has new matched!`,
+                    content: `You has new matched with ${ userData1.username }!`,
                     relatedEntity: {
                         entityType: 'Matching',
                         entityId: match._id,

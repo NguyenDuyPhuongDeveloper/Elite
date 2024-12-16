@@ -4,36 +4,42 @@ exports.getUserNotifications = async (req, res) =>
 {
     try
     {
-        const { userId } = req.params;
+        const { userId } = req.params; // ID người dùng nhận thông báo
         const { read, type, limit = 20, page = 1 } = req.query;
 
         const query = { recipient: userId };
 
+        // Bộ lọc trạng thái "read" (đã đọc hoặc chưa đọc)
         if (read !== undefined)
         {
             query.read = read === 'true';
         }
 
+        // Bộ lọc loại thông báo
         if (type)
         {
             query.type = type;
         }
 
+        // Lấy danh sách thông báo, sắp xếp và phân trang
         const notifications = await Notification.find(query)
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
             .limit(Number(limit))
-            .populate('sender', 'name profilePicture');
+            .populate('sender', 'firstName lastName avatar') // Populate thông tin từ UserProfile
+            .populate('recipient', 'firstName lastName avatar'); // Populate thông tin từ UserProfile
 
+        // Đếm tổng số thông báo để tính tổng số trang
         const total = await Notification.countDocuments(query);
 
         res.json({
             notifications,
             totalPages: Math.ceil(total / limit),
-            currentPage: page
+            currentPage: Number(page),
         });
     } catch (error)
     {
+        console.error('Error fetching notifications:', error);
         res.status(500).json({ message: 'Error fetching notifications', error: error.message });
     }
 };

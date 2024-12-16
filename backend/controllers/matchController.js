@@ -1,6 +1,8 @@
 const Matching = require('../models/Matching');
 const Notification = require('../models/Notification');
 const UserProfile = require('../models/UserProfile');
+const User = require('../models/User')
+const calculateMatchingScore = require('../utils/compatibilityScore');
 const mongoose = require('mongoose');
 
 exports.createPotentialMatch = async (req, res) =>
@@ -167,43 +169,104 @@ exports.createOrGetMatch = async (req, res) =>
 {
     try
     {
-        const { userId } = req.body; // ID của người dùng được ghép đôi
-        const currentUserId = req.user.id; // ID của người gửi từ middleware bảo vệ
-        console.log(userId);
-        console.log(currentUserId);
+        const { userId } = req.body;
+        const currentUserId = req.user.id;
 
-        const userData1 = await User.findById(currentUserId).populate('profile');
-        const user1 = userData1.profile;
-        const userData2 = await User.findById(userId).populate('profile');
-        const user2 = userData2.profile;
+        if (!userId || userId === currentUserId)
+        {
+            return res.status(400).json({ message: 'Invalid user ID for matching' });
+        }
+
+        // Lấy thông tin từ UserProfile
+        const user1 = await UserProfile.findOne({ userId: currentUserId });
+        const user2 = await UserProfile.findOne({ userId: userId });
+
+        if (!user1 || !user2)
+        {
+            return res.status(404).json({ message: 'UserProfile not found' });
+        }
+
         const compatibilityScore = calculateMatchingScore(user1, user2);
-        // Tìm trạng thái match nếu đã tồn tại
+
+        // Kiểm tra trạng thái match đã tồn tại
         let match = await Matching.findOne({
             $or: [
                 { user1: currentUserId, user2: userId },
                 { user1: userId, user2: currentUserId },
             ],
         });
-        console.log(match);
 
-        // Nếu chưa tồn tại, tạo mới
-        if (!match)
+        if (match)
         {
-            match = new Matching({
-                user1: currentUserId,
-                user2: userId,
-                status: 'Matched', // Trạng thái mặc định
-                matchedAt: new Date(),
-                compatibilityScore
-
-            });
+            // Cập nhật trạng thái thành "Matched" nếu đã tồn tại
+            match.status = 'Matched';
+            match.matchedAt = new Date();
             await match.save();
+
+            // Tạo thông báo
+            const notification = await Notification.create({
+                recipient: user2._id,
+                sender: user1._id,
+                type: 'MATCH',
+                content: `You are now matched with ${ user1.firstName } ${ user1.lastName }`,
+                relatedEntity: {
+                    entityType: 'Matching',
+                    entityId: match._id,
+                },
+            });
+
+            // Populate thông báo để trả về dữ liệu đầy đủ
+            const populatedNotification = await Notification.findById(notification._id)
+                .populate('sender', 'firstName lastName avatar')
+                .populate('recipient', 'firstName lastName avatar');
+
+            return res.status(200).json({
+                success: true,
+                match,
+                notification: populatedNotification,
+            });
         }
 
-        res.status(200).json({ success: true, match });
+        // Nếu chưa tồn tại, tạo mới
+        match = new Matching({
+            user1: currentUserId,
+            user2: userId,
+            status: 'Matched',
+            compatibilityScore,
+            matchedAt: new Date(),
+        });
+
+        await match.save();
+
+        // Tạo thông báo
+        const notification = await Notification.create({
+            recipient: user2._id,
+            sender: user1._id,
+            type: 'MATCH',
+            content: `You are now matched with ${ user1.firstName } ${ user1.lastName }`,
+            relatedEntity: {
+                entityType: 'Matching',
+                entityId: match._id,
+            },
+        });
+
+        const populatedNotification = await Notification.findById(notification._id)
+            .populate('sender', 'firstName lastName avatar')
+            .populate('recipient', 'firstName lastName avatar');
+        console.log("match: ", match);
+        console.log("notification: ", populatedNotification);
+        res.status(201).json({
+            success: true,
+            match,
+            notification: populatedNotification,
+        });
     } catch (error)
     {
         console.error('Error creating or fetching match:', error);
-        res.status(500).json({ success: false, message: 'Error creating or fetching match' });
+        res.status(500).json({
+            success: false,
+            message: 'Error creating or fetching match',
+            error: error.message,
+        });
     }
 };
