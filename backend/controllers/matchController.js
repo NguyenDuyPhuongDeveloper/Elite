@@ -1,85 +1,13 @@
 const Matching = require('../models/Matching');
 const Notification = require('../models/Notification');
 const UserProfile = require('../models/UserProfile');
+const Conversation = require('../models/Conversation');
 const User = require('../models/User')
 const calculateMatchingScore = require('../utils/compatibilityScore');
 const mongoose = require('mongoose');
 
-exports.createPotentialMatch = async (req, res) =>
-{
-    try
-    {
-        const { user1, user2, compatibilityScore } = req.body;
 
-        // Check if a match already exists
-        const existingMatch = await Matching.findOne({
-            $or: [
-                { user1, user2 },
-                { user1: user2, user2: user1 }
-            ]
-        });
 
-        if (existingMatch)
-        {
-            return res.status(400).json({ message: 'Match already exists' });
-        }
-
-        const newMatch = new Matching({
-            user1,
-            user2,
-            compatibilityScore,
-            status: 'Pending'
-        });
-
-        await newMatch.save();
-
-        // Create a notification for the potential match
-        await Notification.create({
-            recipient: user2,
-            sender: user1,
-            type: 'MATCH',
-            content: `New potential match with compatibility score: ${ compatibilityScore }`,
-            relatedEntity: {
-                entityType: 'Matching',
-                entityId: newMatch._id
-            }
-        });
-
-        res.status(201).json(newMatch);
-    } catch (error)
-    {
-        res.status(500).json({ message: 'Error creating potential match', error: error.message });
-    }
-};
-
-exports.getMatchStatus = async (req, res) =>
-{
-    try
-    {
-        const { userId, targetUserId } = req.params;
-
-        const match = await Matching.findOne({
-            $or: [
-                { user1: userId, user2: targetUserId },
-                { user1: targetUserId, user2: userId },
-            ],
-
-        });
-
-        if (!match)
-        {
-            return res.status(404).json({ status: 'No Match' });
-        }
-
-        res.json({
-            status: match.status,
-            compatibilityScore: match.compatibilityScore
-        });
-    } catch (error)
-    {
-        res.status(500).json({ message: 'Error fetching match status', error: error.message });
-    }
-};
 
 exports.getUserMatches = async (req, res) =>
 {
@@ -141,54 +69,68 @@ exports.updateMatchStatus = async (req, res) =>
     }
 };
 
-exports.getPotentialMatches = async (req, res) =>
+
+exports.getMatchStatus = async (req, res) =>
 {
     try
     {
-        const { userId } = req.params;
+        const { userId, targetUserId } = req.params;
 
-        // Find potential matches based on compatibility criteria
-        const potentialMatches = await UserProfile.aggregate([
-            {
-                $match: {
-                    _id: { $ne: new mongoose.Types.ObjectId(userId) }
+        const match = await Matching.findOne({
+            $or: [
+                { user1: userId, user2: targetUserId },
+                { user1: targetUserId, user2: userId },
+            ]
+        });
 
-                }
-            },
-            // Add matching logic here based on your compatibility algorithm
-            { $sample: { size: 10 } } // Randomly select 10 potential matches
-        ]);
+        if (!match)
+        {
+            return res.status(200).json({
+                status: 'No Match',
+                message: 'No existing match found'
+            });
+        }
 
-        res.json(potentialMatches);
+        res.status(200).json({
+            status: match.status,
+            compatibilityScore: match.compatibilityScore,
+            match
+        });
     } catch (error)
     {
-        res.status(500).json({ message: 'Error fetching potential matches', error: error.message });
+        res.status(500).json({
+            message: 'Error fetching match status',
+            error: error.message
+        });
     }
 };
+
 exports.createOrGetMatch = async (req, res) =>
 {
     try
     {
-        const { userId } = req.body;
+        const { userId } = req.body; // Change from req.body to req.params
         const currentUserId = req.user.id;
+        console.log(userId);
+        console.log(currentUserId);
 
         if (!userId || userId === currentUserId)
         {
-            return res.status(400).json({ message: 'Invalid user ID for matching' });
+            return res.status(400).json({ message: 'Cannot match with yourself' });
         }
 
-        // Lấy thông tin từ UserProfile
+        // Lấy thông tin người dùng
         const user1 = await UserProfile.findOne({ userId: currentUserId });
         const user2 = await UserProfile.findOne({ userId: userId });
+
+
 
         if (!user1 || !user2)
         {
             return res.status(404).json({ message: 'UserProfile not found' });
         }
 
-        const compatibilityScore = calculateMatchingScore(user1, user2);
-
-        // Kiểm tra trạng thái match đã tồn tại
+        // Kiểm tra trạng thái match
         let match = await Matching.findOne({
             $or: [
                 { user1: currentUserId, user2: userId },
@@ -196,77 +138,142 @@ exports.createOrGetMatch = async (req, res) =>
             ],
         });
 
-        if (match)
+        // Only create a new match if no existing match is found
+        if (!match)
         {
-            // Cập nhật trạng thái thành "Matched" nếu đã tồn tại
-            match.status = 'Matched';
-            match.matchedAt = new Date();
+            const compatibilityScore = calculateMatchingScore(user1, user2);
+            match = new Matching({
+                user1: currentUserId,
+                user2: userId,
+                status: 'Pending',
+                compatibilityScore,
+            });
             await match.save();
 
-            // Tạo thông báo
+            // Gửi thông báo đến đối phương
             const notification = await Notification.create({
                 recipient: user2._id,
                 sender: user1._id,
-                type: 'MATCH',
-                content: `You are now matched with ${ user1.firstName } ${ user1.lastName }`,
+                type: 'MATCH_REQUEST',
+                content: `${ user1.firstName } ${ user1.lastName } has sent you a match request.`,
                 relatedEntity: {
                     entityType: 'Matching',
                     entityId: match._id,
                 },
             });
 
-            // Populate thông báo để trả về dữ liệu đầy đủ
-            const populatedNotification = await Notification.findById(notification._id)
-                .populate('sender', 'firstName lastName avatar')
-                .populate('recipient', 'firstName lastName avatar');
-
-            return res.status(200).json({
+            return res.status(201).json({
                 success: true,
+                message: 'Match request sent',
                 match,
-                notification: populatedNotification,
+                notification,
             });
         }
 
-        // Nếu chưa tồn tại, tạo mới
-        match = new Matching({
-            user1: currentUserId,
-            user2: userId,
-            status: 'Matched',
-            compatibilityScore,
-            matchedAt: new Date(),
-        });
-
-        await match.save();
-
-        // Tạo thông báo
-        const notification = await Notification.create({
-            recipient: user2._id,
-            sender: user1._id,
-            type: 'MATCH',
-            content: `You are now matched with ${ user1.firstName } ${ user1.lastName }`,
-            relatedEntity: {
-                entityType: 'Matching',
-                entityId: match._id,
-            },
-        });
-
-        const populatedNotification = await Notification.findById(notification._id)
-            .populate('sender', 'firstName lastName avatar')
-            .populate('recipient', 'firstName lastName avatar');
-        console.log("match: ", match);
-        console.log("notification: ", populatedNotification);
-        res.status(201).json({
+        // If match exists, return its current status
+        return res.status(200).json({
             success: true,
             match,
-            notification: populatedNotification,
+            message: match.status === 'Pending'
+                ? 'Match request is pending'
+                : 'Existing match found'
         });
+
     } catch (error)
     {
         console.error('Error creating or fetching match:', error);
         res.status(500).json({
             success: false,
-            message: 'Error creating or fetching match',
-            error: error.message,
+            message: 'Internal Server Error',
+            error: error.message
         });
     }
 };
+exports.respondToMatchRequest = async (req, res) =>
+{
+    try
+    {
+        const { matchId, action } = req.body;
+        const currentUserId = req.user.id;
+        console.log(currentUserId);
+
+        if (!['Matched', 'Rejected'].includes(action))
+        {
+            return res.status(400).json({ message: 'Invalid action' });
+        }
+
+        // Tìm match theo ID
+        const match = await Matching.findById(matchId);
+
+        if (!match)
+        {
+            return res.status(404).json({ message: 'Match request not found' });
+        }
+
+        if (match.user2.toString() !== currentUserId)
+        {
+            return res.status(403).json({ message: 'You are not authorized to respond to this match request' });
+        }
+
+        // Cập nhật trạng thái
+        match.status = action;
+        if (action === 'Matched')
+        {
+            match.matchedAt = new Date();
+        }
+        await match.save();
+
+        // Gửi thông báo đến người gửi
+        if (action === 'Matched')
+        {
+            let conversation = await Conversation.findOne({
+                participants: { $all: [match.user1, match.user2] },
+            });
+
+            if (!conversation)
+            {
+                conversation = await Conversation.create({
+                    participants: [match.user1, match.user2],
+                });
+            }
+
+
+            await Notification.create({
+                recipient: match.user1,
+                sender: match.user2,
+                type: 'MATCH',
+                content: `${ req.user.username } accepted your match request!`,
+                relatedEntity: {
+                    entityType: 'Matching',
+                    entityId: match._id,
+                },
+            });
+            console.log(conversation);
+
+            return res.status(200).json({
+                success: true,
+                match,
+                conversationId: conversation._id,
+            });
+        } else if (action === 'Rejected')
+        {
+            await Notification.create({
+                recipient: match.user1,
+                sender: match.user2,
+                type: 'MATCH',
+                content: `${ req.user.firstName } ${ req.user.lastName } rejected your match request.`,
+                relatedEntity: {
+                    entityType: 'Matching',
+                    entityId: match._id,
+                },
+            });
+        }
+
+        res.status(200).json({ success: true, match });
+    } catch (error)
+    {
+        console.error('Error responding to match request:', error);
+        res.status(500).json({ success: false, message: 'Internal Server Error', error: error.message });
+    }
+};
+

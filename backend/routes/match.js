@@ -1,24 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const matchingController = require('../controllers/matchController');
-const { protect } = require('../middlewares/auth.middleware');
-
-
-// Create a new potential match
-router.post('/create', matchingController.createPotentialMatch);
-
-// Get matching status between two users
-router.get('/:userId/status/:targetUserId', matchingController.getMatchStatus);
-
-// Get all matches for a user
-router.get('/:userId/matches', matchingController.getUserMatches);
-
-// Accept or reject a match
-router.patch('/:matchId/update', matchingController.updateMatchStatus);
-
-// Get potential matches for a user
-router.get('/:userId/potential-matches', matchingController.getPotentialMatches);
-router.post('/create-or-get', protect, matchingController.createOrGetMatch);
-
+const {
+    createOrGetMatch,
+    getUserMatches,
+    updateMatchStatus,
+    respondToMatchRequest,
+    getMatchStatus,
+} = require('../controllers/matchController'); // Đảm bảo đường dẫn đúng
+const { protect } = require('../middlewares/auth.middleware')
+router.post('/create-or-get/', protect, createOrGetMatch); // Thêm route với callback hợp lệ
+router.get('/:userId/matches', protect, getUserMatches);
+router.put('/:matchId/status', protect, updateMatchStatus);
+router.post('/respond', protect, respondToMatchRequest);
+router.get('/match-status/:userId/:targetUserId', protect, getMatchStatus);
 
 module.exports = router;

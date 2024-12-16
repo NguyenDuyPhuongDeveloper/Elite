@@ -13,6 +13,7 @@ const NotificationSchema = new mongoose.Schema({
         type: String,
         enum: [
             'MATCH',
+            'MATCH_REQUEST',
             'MESSAGE',
             'LIKE',
             'SUPER_LIKE',
