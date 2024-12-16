@@ -185,7 +185,7 @@ const getRandomCoordinates = () =>
 {
     const centerLongitude = 106.6297; // Kinh độ trung tâm TP Hồ Chí Minh
     const centerLatitude = 10.8231; // Vĩ độ trung tâm TP Hồ Chí Minh
-    const radius = 0.3; // Bán kính (đơn vị độ, khoảng 30km)
+    const radius = 0.5; // Bán kính (đơn vị độ, khoảng 30km)
 
     const randomLongitude = centerLongitude + (Math.random() - 0.5) * radius * 2;
     const randomLatitude = centerLatitude + (Math.random() - 0.5) * radius * 2;
@@ -236,7 +236,7 @@ const createFakeData = async (count = 10) =>
 
 // Kết nối MongoDB và thực thi
 mongoose
-    .connect("mongodb://localhost:27017/test4", {
+    .connect("mongodb://localhost:27017/test6", {
         useNewUrlParser: true,
         useUnifiedTopology: true,
     })

@@ -163,3 +163,47 @@ exports.getPotentialMatches = async (req, res) =>
         res.status(500).json({ message: 'Error fetching potential matches', error: error.message });
     }
 };
+exports.createOrGetMatch = async (req, res) =>
+{
+    try
+    {
+        const { userId } = req.body; // ID của người dùng được ghép đôi
+        const currentUserId = req.user.id; // ID của người gửi từ middleware bảo vệ
+        console.log(userId);
+        console.log(currentUserId);
+
+        const userData1 = await User.findById(currentUserId).populate('profile');
+        const user1 = userData1.profile;
+        const userData2 = await User.findById(userId).populate('profile');
+        const user2 = userData2.profile;
+        const compatibilityScore = calculateMatchingScore(user1, user2);
+        // Tìm trạng thái match nếu đã tồn tại
+        let match = await Matching.findOne({
+            $or: [
+                { user1: currentUserId, user2: userId },
+                { user1: userId, user2: currentUserId },
+            ],
+        });
+        console.log(match);
+
+        // Nếu chưa tồn tại, tạo mới
+        if (!match)
+        {
+            match = new Matching({
+                user1: currentUserId,
+                user2: userId,
+                status: 'Matched', // Trạng thái mặc định
+                matchedAt: new Date(),
+                compatibilityScore
+
+            });
+            await match.save();
+        }
+
+        res.status(200).json({ success: true, match });
+    } catch (error)
+    {
+        console.error('Error creating or fetching match:', error);
+        res.status(500).json({ success: false, message: 'Error creating or fetching match' });
+    }
+};

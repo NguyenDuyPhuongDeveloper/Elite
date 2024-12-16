@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const matchingController = require('../controllers/matchController');
+const { protect } = require('../middlewares/auth.middleware');
 
 
 // Create a new potential match
@@ -17,5 +18,7 @@ router.patch('/:matchId/update', matchingController.updateMatchStatus);
 
 // Get potential matches for a user
 router.get('/:userId/potential-matches', matchingController.getPotentialMatches);
+router.post('/create-or-get', protect, matchingController.createOrGetMatch);
+
 
 module.exports = router;
