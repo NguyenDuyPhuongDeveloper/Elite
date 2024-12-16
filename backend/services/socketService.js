@@ -15,6 +15,35 @@ const initSocketIO = (server) =>
     io.on('connection', (socket) =>
     {
         console.log(`New client connected: ${ socket.id }`);
+        socket.on('initiateVideoCall', ({ conversationId, caller }) =>
+        {
+            // Broadcast incoming call to other participants in the conversation
+            socket.to(conversationId).emit('incomingVideoCall', {
+                conversationId,
+                caller
+            });
+        });
+
+        // Handle call end
+        socket.on('endVideoCall', ({ conversationId }) =>
+        {
+            socket.to(conversationId).emit('callEnded');
+        });
+
+        socket.on('offer', ({ conversationId, offer }) =>
+        {
+            socket.to(conversationId).emit('offer', { offer });
+        });
+
+        socket.on('answer', ({ conversationId, answer }) =>
+        {
+            socket.to(conversationId).emit('answer', { answer });
+        });
+
+        socket.on('iceCandidate', ({ conversationId, candidate }) =>
+        {
+            socket.to(conversationId).emit('iceCandidate', { candidate });
+        });
 
         // Lắng nghe sự kiện joinConversation
         socket.on("joinConversation", (conversationId) =>
