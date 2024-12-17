@@ -1,15 +1,29 @@
 let io;
 const Message = require('../models/Message');
+// Lấy CLIENT_URL từ .env và chuyển thành mảng
+const allowedOrigins = process.env.CLIENT_URL
+    ? process.env.CLIENT_URL.split(',')
+    : ['http://localhost:3000'];
 
 const initSocketIO = (server) =>
 {
     const socketIO = require('socket.io');
     io = socketIO(server, {
         cors: {
-            origin: process.env.CLIENT_URL || 'http://localhost:3000',
+            origin: (origin, callback) =>
+            {
+                if (!origin || allowedOrigins.includes(origin))
+                {
+                    callback(null, true); // Origin hợp lệ
+                } else
+                {
+                    console.error(`Blocked by CORS: ${ origin }`);
+                    callback(new Error('CORS policy error: Origin not allowed'));
+                }
+            },
             methods: ['GET', 'POST'],
             credentials: true,
-        }
+        },
     });
 
     io.on('connection', (socket) =>

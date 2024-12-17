@@ -15,9 +15,25 @@ const searchRoutes = require('./routes/searchRoutes');
 const notificationRoutes = require('./routes/notification');
 const interactionRoutes = require('./routes/interaction');
 const conversationRoutes = require('./routes/conversation');
+
+// Lấy CLIENT_URL và split thành mảng
+const allowedOrigins = process.env.CLIENT_URL
+    ? process.env.CLIENT_URL.split(',')
+    : ['http://localhost:3000'];
+
 const corsOptions = {
-    origin: process.env.CLIENT_URL || 'http://localhost:3000', // Địa chỉ frontend
-    credentials: true, // Cho phép gửi cookie
+    origin: (origin, callback) =>
+    {
+        if (!origin || allowedOrigins.includes(origin))
+        {
+            callback(null, true);
+        } else
+        {
+            console.error(`Blocked by CORS: ${ origin }`);
+            callback(new Error('CORS policy error: Origin not allowed'));
+        }
+    },
+    credentials: true,
 };
 
 const app = express();
