@@ -197,7 +197,7 @@ exports.login = async (req, res) =>
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production', // Chỉ gửi qua HTTPS khi ở môi trường production
             maxAge: 24 * 60 * 60 * 1000,
-            sameSite: 'Strict'
+            sameSite: 'None'
         });
         const loginTime = new Date();
         console.log(`[LOGIN] User attempted to login at: ${ loginTime.toLocaleString() }`);
@@ -228,7 +228,7 @@ exports.logout = (req, res) =>
         res.clearCookie('token', {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production', // Chỉ áp dụng khi ở môi trường production
-            sameSite: 'Strict'
+            sameSite: 'None'
         });
 
         res.status(200).json({
