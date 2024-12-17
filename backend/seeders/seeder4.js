@@ -17,7 +17,7 @@ const templateProfile = {
         radius: 50, // Bán kính mong muốn 50km
     },
     dateOfBirth: new Date(1995, 5, 15), // Tuổi lý tưởng
-    preferenceAgeRange: { min: 25, max: 30 }, // Độ tuổi mong muốn
+    preferenceAgeRange: { min: 25, max: 35 }, // Độ tuổi mong muốn
     goals: "Long-term relationships", // Mục tiêu
     interestedIn: "Female", // Quan tâm giới tính
     smoking: "Do not smoke",
@@ -67,7 +67,7 @@ const generateFakeUser = () => ({
 // Hàm tạo UserProfile giả dựa trên templateProfile
 const generateFakeUserProfile = (userId, template) =>
 {
-    const isDifferent = () => Math.random() < 0.3; // Xác suất 30% để khác template
+    const isDifferent = () => Math.random() < 0.35; // Xác suất 30% để khác template
 
     return {
         userId: userId, // Liên kết với User
@@ -185,7 +185,7 @@ const getRandomCoordinates = () =>
 {
     const centerLongitude = 106.6297; // Kinh độ trung tâm TP Hồ Chí Minh
     const centerLatitude = 10.8231; // Vĩ độ trung tâm TP Hồ Chí Minh
-    const radius = 0.5; // Bán kính (đơn vị độ, khoảng 30km)
+    const radius = 0.9; // Bán kính (đơn vị độ, khoảng 30km)
 
     const randomLongitude = centerLongitude + (Math.random() - 0.5) * radius * 2;
     const randomLatitude = centerLatitude + (Math.random() - 0.5) * radius * 2;
@@ -236,13 +236,13 @@ const createFakeData = async (count = 10) =>
 
 // Kết nối MongoDB và thực thi
 mongoose
-    .connect("mongodb://localhost:27017/test6", {
+    .connect("mongodb://localhost:27017/test7", {
         useNewUrlParser: true,
         useUnifiedTopology: true,
     })
     .then(() =>
     {
         console.log("Connected to MongoDB");
-        createFakeData(500); // Tạo 5000 hồ sơ giả
+        createFakeData(5000); // Tạo 5000 hồ sơ giả
     })
     .catch((err) => console.error("MongoDB connection error:", err));

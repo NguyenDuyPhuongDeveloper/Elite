@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
+const MongoStore = require('connect-mongo');
 
 const passport = require('./config/passportConfig')
 const authRoutes = require('./routes/auth');
@@ -28,17 +29,19 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(
-    session({
-        secret: process.env.SESSION_SECRET || 'your_secret_key', // Chuỗi bí mật để mã hóa session
-        resave: false, // Không lưu lại session nếu không thay đổi
-        saveUninitialized: false, // Không lưu session trống
-        cookie: {
-            secure: process.env.NODE_ENV === 'production', // Bật HTTPS ở môi trường production
-            maxAge: 24 * 60 * 60 * 1000, // Thời gian sống của cookie (1 ngày)
-        },
-    })
-);
+app.use(session({
+    secret: process.env.SECRET_KEY || 'your-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+        mongoUrl: process.env.MONGO_URI, // Sử dụng URI của MongoDB Atlas
+        ttl: 14 * 24 * 60 * 60, // Thời gian sống của session (14 ngày)
+    }),
+    cookie: {
+        secure: process.env.NODE_ENV === 'production', // Bật secure cookie nếu production
+        httpOnly: true,
+    }
+}));
 
 app.use(passport.initialize());
 app.use(passport.session());
