@@ -8,7 +8,7 @@ passport.use(
         {
             clientID: process.env.GOOGLE_CLIENT_ID, // Từ Google Developers Console
             clientSecret: process.env.GOOGLE_CLIENT_SECRET, // Từ Google Developers Console
-            callbackURL: '/api/v1/auth/google/callback', // URL callback của ứng dụng
+            callbackURL: `${ process.env.BACKEND_URL }/api/v1/auth/google/callback`, // URL callback của ứng dụng
         },
         async (accessToken, refreshToken, profile, done) =>
         {
