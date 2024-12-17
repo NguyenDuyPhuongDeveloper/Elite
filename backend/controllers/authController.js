@@ -290,12 +290,12 @@ exports.forgotPassword = async (req, res) =>
 
         await user.save();
 
-        const frontendUrl =
+        const FRONTEND_URL =
             process.env.NODE_ENV === 'production'
-                ? process.env.frontendUrl
+                ? process.env.FRONTEND_URL
                 : 'http://localhost:3000';
 
-        const resetUrl = `${ frontendUrl }/reset-password/${ resetToken }`;
+        const resetUrl = `${ FRONTEND_URL }/reset-password/${ resetToken }`;
         await sendEmail({
             email: user.email,
             subject: 'Password Reset',
@@ -608,16 +608,16 @@ exports.googleCallback = async (req, res) =>
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
-            sameSite: 'Strict',
+            sameSite: 'None',
         });
 
         // Chuyển hướng về frontend với Access Token
-        const frontendUrl =
+        const FRONTEND_URL =
             process.env.NODE_ENV === 'production'
                 ? process.env.FRONTEND_URL
                 : 'http://localhost:3000';
 
-        res.redirect(`${ frontendUrl }/google-callback/${ accessToken }`);
+        res.redirect(`${ FRONTEND_URL }/google-callback/${ accessToken }`);
     } catch (error)
     {
         console.error('Google Callback Error:', error);
