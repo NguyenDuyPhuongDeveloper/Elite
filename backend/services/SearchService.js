@@ -11,6 +11,7 @@ exports.performBasicSearch = async (userId, filters) =>
     const userData = await User.findById(userId).populate('profile');
     const user = userData.profile;
     if (!user) throw new Error('User not found');
+    const effectiveFilters = JSON.parse(filters);
     // Lấy danh sách người bị "Dislike"
     const dislikedUserIds = await Interaction.find({
         userFrom: userId,
@@ -33,11 +34,11 @@ exports.performBasicSearch = async (userId, filters) =>
 
     // Tính toán khoảng thời gian sinh dựa trên độ tuổi
     const currentYear = new Date().getFullYear();
-    const minBirthYear = filters.ageRange
-        ? currentYear - filters.ageRange.max
+    const minBirthYear = effectiveFilters.ageRange
+        ? currentYear - effectiveFilters.ageRange.max
         : currentYear - user.preferenceAgeRange.max;
-    const maxBirthYear = filters.ageRange
-        ? currentYear - filters.ageRange.min
+    const maxBirthYear = effectiveFilters.ageRange
+        ? currentYear - effectiveFilters.ageRange.min
         : currentYear - user.preferenceAgeRange.min;
 
     // Xây dựng query tìm kiếm
@@ -47,14 +48,14 @@ exports.performBasicSearch = async (userId, filters) =>
             $gte: new Date(`${ minBirthYear }-01-01`),
             $lte: new Date(`${ maxBirthYear }-12-31`),
         },
-        gender: filters.interestedIn || user.interestedIn,
+        gender: effectiveFilters.interestedIn || user.interestedIn,
         location: {
             $geoWithin: {
                 $centerSphere: [
-                    filters.location
-                        ? [filters.location.lng, filters.location.lat]
+                    effectiveFilters.location
+                        ? [effectiveFilters.location.lng, effectiveFilters.location.lat]
                         : user.location.coordinates,
-                    (filters.locationRadius || user.locationRadius) / 6371,
+                    (effectiveFilters.locationRadius || user.locationRadius) / 6371,
                 ],
             },
         },
@@ -63,13 +64,21 @@ exports.performBasicSearch = async (userId, filters) =>
 
     // Tìm kiếm
     const results = await UserProfile.find(query);
+    // console.log(results);
     // results.shift();
 
-    // Tính điểm tương thích
-    return results.map(target => ({
+    // Tìm kiếm và tính điểm tương thích cho các hồ sơ
+    const resultsWithScores = results.map(target => ({
         user: target,
-        compatibilityScore: calculateMatchingScore(user, target),
-    })).sort((a, b) => b.compatibilityScore - a.compatibilityScore);
+        compatibilityScore: calculateMatchingScore(user, target), // Tính điểm tương thích
+    }));
+
+    // Sắp xếp kết quả theo điểm tương thích từ cao đến thấp
+    const sortedResults = resultsWithScores.sort((a, b) => b.compatibilityScore - a.compatibilityScore);
+    //console.log(sortedResults);
+    // Trả về kết quả đã sắp xếp
+    return sortedResults;
+
 };
 
 
