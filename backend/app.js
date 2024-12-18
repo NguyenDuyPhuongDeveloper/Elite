@@ -15,6 +15,8 @@ const searchRoutes = require('./routes/searchRoutes');
 const notificationRoutes = require('./routes/notification');
 const interactionRoutes = require('./routes/interaction');
 const conversationRoutes = require('./routes/conversation');
+// Import route
+const iceServerRoute = require('./routes/iceServers');
 
 // Lấy CLIENT_URL và split thành mảng
 const allowedOrigins = process.env.CLIENT_URL
@@ -70,6 +72,11 @@ app.use('/api/v1/message', messageRoutes);
 app.use('/api/v1/notification', notificationRoutes);
 app.use('/api/v1/interaction', interactionRoutes);
 app.use('/api/v1/conversations', conversationRoutes);
+
+
+
+// Đăng ký route
+app.use('/api/iceServers', iceServerRoute);
 
 // Error handling middleware
 app.use((err, req, res, next) =>
