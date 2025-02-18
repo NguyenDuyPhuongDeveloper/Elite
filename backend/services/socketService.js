@@ -1,26 +1,17 @@
 let io;
 const Message = require('../models/Message');
-// Lấy CLIENT_URL từ .env và chuyển thành mảng
+
+// Lấy CLIENT_URL từ .env
 const allowedOrigins = process.env.CLIENT_URL
     ? process.env.CLIENT_URL.split(',')
     : ['http://localhost:3000'];
 
 const initSocketIO = (server) =>
 {
-    const socketIO = require('socket.io');
-    io = socketIO(server, {
+    const { Server } = require('socket.io');
+    io = new Server(server, {
         cors: {
-            origin: (origin, callback) =>
-            {
-                if (!origin || allowedOrigins.includes(origin))
-                {
-                    callback(null, true); // Origin hợp lệ
-                } else
-                {
-                    console.error(`Blocked by CORS: ${ origin }`);
-                    callback(new Error('CORS policy error: Origin not allowed'));
-                }
-            },
+            origin: allowedOrigins,  // Chuyển thành danh sách allowedOrigins
             methods: ['GET', 'POST'],
             credentials: true,
         },
@@ -29,16 +20,12 @@ const initSocketIO = (server) =>
     io.on('connection', (socket) =>
     {
         console.log(`New client connected: ${ socket.id }`);
+
         socket.on('initiateVideoCall', ({ conversationId, caller }) =>
         {
-            // Broadcast incoming call to other participants in the conversation
-            socket.to(conversationId).emit('incomingVideoCall', {
-                conversationId,
-                caller
-            });
+            socket.to(conversationId).emit('incomingVideoCall', { conversationId, caller });
         });
 
-        // Handle call end
         socket.on('endVideoCall', ({ conversationId }) =>
         {
             socket.to(conversationId).emit('callEnded');
@@ -62,26 +49,26 @@ const initSocketIO = (server) =>
         // Lắng nghe sự kiện joinConversation
         socket.on("joinConversation", (conversationId) =>
         {
-            console.log(`Client ${ socket.id } joined room: ${ conversationId }`);
             socket.join(conversationId);
+            console.log(`Client ${ socket.id } joined room: ${ conversationId }`);
 
-            // Log danh sách các phòng
             const rooms = Array.from(socket.rooms);
             console.log(`Client ${ socket.id } is now in rooms:`, rooms);
         });
-
 
         // Lắng nghe sự kiện sendMessage
         socket.on("sendMessage", ({ conversationId, message }) =>
         {
             console.log(`Emitting message to room ${ conversationId }:`, message);
 
-            // Log tất cả socket trong room
+            // Kiểm tra danh sách client trong room
             const clients = io.sockets.adapter.rooms.get(conversationId);
             console.log(`Clients in room ${ conversationId }:`, Array.from(clients || []));
+
             io.to(conversationId).emit("receiveMessage", message);
         });
-        socket.on('markAsRead', async ({ messageId, conversationId, userId }) =>
+
+        socket.on('markAsRead', async ({ messageId, conversationId }) =>
         {
             try
             {
@@ -105,10 +92,7 @@ const initSocketIO = (server) =>
         {
             try
             {
-                // Xóa tin nhắn trong DB
                 await Message.findByIdAndDelete(messageId);
-
-                // Phát sự kiện cho tất cả các client trong phòng hội thoại
                 io.to(conversationId).emit('messageDeleted', { messageId });
             } catch (error)
             {
@@ -116,8 +100,6 @@ const initSocketIO = (server) =>
             }
         });
 
-
-        // Ngắt kết nối
         socket.on('disconnect', () =>
         {
             console.log(`Client disconnected: ${ socket.id }`);
@@ -151,6 +133,7 @@ const emitMessage = (conversationId, message) =>
     console.log(`Emitting message to room ${ conversationId }:`, messageData);
     io.to(conversationId).emit('receiveMessage', messageData);
 };
+
 const getIO = () =>
 {
     if (!io)
@@ -159,7 +142,5 @@ const getIO = () =>
     }
     return io;
 };
-
-
 
 module.exports = { initSocketIO, emitMessage, getIO };
